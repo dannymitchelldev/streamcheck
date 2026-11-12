@@ -45,8 +45,10 @@ describe('pinned official SDK compatibility gate', () => {
   it('passes cancellation to an in-flight fetch', async () => {
     const abort = new AbortController();
     let received: AbortSignal | undefined;
-    const sdk = createSdk('synthetic-key', async input => {
-      const signal = (input as Request).signal;
+    const sdk = createSdk('synthetic-key', async (input, init) => {
+      // Match native fetch: RequestInit.signal overrides Request.signal. The
+      // pinned SDK uses that override to retain cancellation across Node GC.
+      const signal = init?.signal ?? (input as Request).signal;
       received = signal;
       return new Promise<Response>((_resolve, reject) => signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }));
     });

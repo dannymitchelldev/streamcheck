@@ -58,6 +58,7 @@ Tests release timers/readers/listeners. The package-consumer check removes only 
 - When changing argument parsing, cover missing option values before standalone --json, literal --prompt=--json, and the -- terminator. Strict and permissive Node argument parsing interpret missing values differently.
 - SDK fixtures must not let another choice's finish certify choice zero. Unexpected/duplicate choice entries are protocol failures; already retained text must survive.
 - A cold npm cache exposed an old ENOTCACHED failure: npm ci cached package files without all registry manifests needed by a separate --offline install. Consumer dependency installation now permits npm access. Runtime provider access remains blocked, and installed CLI resolution remains offline.
+- Cancellation fixtures must match native fetch signal precedence: `init?.signal ?? request.signal`. SDK 1.5.91 supplies a strongly retained signal through `RequestInit`; observing only the request's weakly linked signal can hang after Node garbage collection. This reproduced an intermittent 10-second compatibility-test timeout without any provider traffic; the fixture now observes the effective signal.
 
 ## Release artifact verification
 
@@ -151,6 +152,130 @@ No service, credentials, or persistent output is created. Generated build and ch
 - Headers alone accepts some characters that the Node transport rejects. Validate the normalized HTTP field value too, while retaining the SDK's trailing-whitespace normalization.
 - Use a combined text/finish frame. A later finish frame does not reproduce the callback metadata defect.
 - Keep finish metadata separate from accepting normal completion: later observable failures while draining must still win.
+
+## Live OpenRouter smoke check
+
+Last verified: 2026-11-12. StreamCheck v0.1.1 at `d9795dfb0cdc0fda6c37f887c49bb264d6179286`, Windows / Node 24.18.0 / SDK 1.5.91. One `openai/gpt-4.1-nano` invocation passed all 15 evidence assertions: exit 0, observed HTTP 200, exact `STREAMCHECK_OK` text, `stop`, no warnings, and no stderr. First text arrived at 670.113 ms; accepted completion was at 842.169 ms. Limits were 32 output tokens / 30,000 ms, without SDK retries. [Machine-readable receipt](verification/live-provider-2026-11-12.json).
+
+The offline `npm run check` also passed on this source commit before the live invocation: type checks, build, 108 tests, and the packed-package consumer. Documentation-only changes record the live result; no runtime code or dependency changed.
+
+### Purpose
+
+Verify one real text-stream completion through the built CLI and pinned SDK. This is a separate, explicitly invoked check; automated tests continue to use fixtures.
+
+### Setup / Seed Data
+
+- Install the locked dependencies and build with `npm run build`.
+- Supply `OPENROUTER_API_KEY` through the process environment. An ignored `.env` file can instead be loaded with Node's `--env-file=.env` option before `dist/bin.js`; the CLI does not load dotenv files itself.
+- Confirm the selected model is available in the current [OpenRouter model catalog](https://openrouter.ai/api/v1/models). The small smoke prompt contains no private data.
+
+### Safe Actions
+
+Offline build/check commands and the public model-catalog GET do not create a generation. Inspect credential presence without printing its value.
+
+### Destructive / Mutating Actions
+
+The live command sends a potentially billable generation request. Run it once, with 32 maximum output tokens and a 30-second deadline. StreamCheck disables SDK retries; do not automatically rerun a failed or interrupted generation. Local cancellation does not establish that provider processing or billing stopped.
+
+### Steps
+
+1. Run the offline verification first.
+2. Confirm the credential is available without logging it or putting it in command-line arguments.
+3. Run the command below once and retain its JSON, stderr, and process exit status in an ignored `.work` directory.
+4. Check that stdout contains exactly one JSON result, exit status is 0, `schemaVersion` is 1, `source` is `live`, `model` matches the request, `outcome` is `success`, `httpStatus` is 200, and `partialOutput` is false.
+5. Check the received text against the requested marker, `finishReason` is `stop`, warnings are empty, and finite timings satisfy `0 <= firstTokenMs <= elapsedMs <= 30000`.
+6. Record the commit, runtime, model, request limits, result, and verification date. Keep credentials, account metadata, and private prompts out of shared evidence.
+
+### Verification Commands
+
+```sh
+npm run check
+node dist/bin.js run --model openai/gpt-4.1-nano --prompt "Return exactly STREAMCHECK_OK and nothing else." --max-tokens 32 --timeout 30000 --json
+```
+
+For an ignored `.env` file, use `node --env-file=.env dist/bin.js run` with the same options. Do not run both variants: each creates a separate generation.
+
+Expected: exit 0 and one live success result with the marker text, observed HTTP 200, a normal stop, no warnings, and populated timing fields. A different marker is a model-response mismatch; inspect the saved result rather than silently making another request.
+
+### Cleanup
+
+Keep nonsecret evidence needed for review. Credential files and raw scratch output stay ignored; do not commit or publish API keys. The CLI installs no service and persists no output itself.
+
+### Troubleshooting Notes
+
+- Missing or malformed credentials are setup diagnostics and do not verify provider connectivity. HTTP 401, 402, and 429 require inspecting credential validity, available credit, or rate limits respectively.
+- Record failed/interrupted outcomes as observed. A timeout, transport failure, or protocol rejection is not a passing provider check.
+- One successful generation establishes the observed model/platform combination at that time. Provider interruption recovery, rate limits, physical console Ctrl+C, other operating systems, and sustained reliability require separate evidence.
+- Completion remains SDK-observed. The SDK's documented trailing-frame limitation still applies.
+
+## Manual live interruption checks
+
+Offline harness verified 2026-11-12: all 9 targeted tests passed, followed by `npm run check` with type checks, build, **117 tests**, and the packed-package consumer on Windows / Node 24.18.0. Independent review confirmed the buffered-completion classification correction. Live results are recorded separately from this synthetic verification.
+
+Live verified 2026-11-12 at clean implementation commit `9490d5311ccf2abb442f39516ca9169109dd1ec8`, Windows / Node 24.18.0 / SDK 1.5.91 / `openai/gpt-4.1-nano`. Exactly three requests passed all **33 assertions**, with HTTP 200 and exact callback-text preservation in every case. Cancellation retained `Sure` at 789.170 ms; transport failure retained `I` at 690.057 ms; the stalled deadline retained `I` at 30,003.504 ms. The whole command exited 0. Per-case shared CLI mappings were 130, 3, and 124; no production CLI subprocess was executed. [Machine-readable receipt](verification/live-interruptions-2026-11-12.json).
+
+### Purpose
+
+Verify three interruption paths after receiving genuine live text: caller cancellation, a locally injected transport read error, and a locally stalled body that reaches the existing overall deadline. These are deliberate local faults, not naturally occurring upstream provider errors.
+
+### Setup / Seed Data
+
+- Use a source checkout with locked dependencies installed. The npm command builds the current runtime before execution; the manual script is not included in the release archive.
+- Supply `OPENROUTER_API_KEY` in the environment or pass an ignored credential file with `--env-file=path`. Credential values never belong in shell arguments.
+- The command requires `--live` and refuses execution whenever `CI` is nonempty, including when an environment file sets it. `--help` is safe in CI.
+- Requests use `openai/gpt-4.1-nano`, a fixed public number-list prompt, at most 128 output tokens, and a 30,000 ms deadline per case. Confirm the model remains available before running.
+
+### Safe Actions
+
+`npm run test:live:interruptions -- --help` and the regular `npm run check` do not contact a provider. Normal tests exercise the manual harness through in-process synthetic HTTP/SSE responses, the real built runner, and the pinned SDK. The manual live entry point is absent from normal CI.
+
+### Destructive / Mutating Actions
+
+An explicit live invocation sends exactly one generation request per case, sequentially, without automatic retries. The fetch wrapper refuses a second attempted request within a case before it reaches native fetch. A local reader cancellation is attempted after each fault; this does not establish that provider processing or billing stopped. Each invocation creates its own ignored evidence directory.
+
+### Steps
+
+1. Run the offline check and review the current source commit.
+2. Supply the credential without printing it. Use the command below once; each invocation can create three billable generations.
+3. Wait for `cancel`, `transport`, and `deadline` results. The stall case normally uses nearly its entire 30-second deadline. Do not automatically repeat failures or inconclusive cases.
+4. Inspect the saved receipt. Every case must show one request, observed HTTP 200, injection after decoded nonempty text, exact equality between received callback text and result text, `partialOutput: true`, finite ordered timing values, the expected terminal outcome/diagnostic, and upstream reader cancellation.
+5. Confirm the per-case mapped CLI codes below. The harness calls the production mapper; these are not production CLI subprocess exit observations. The overall manual command exits 0 only if all cases pass, 1 for failed/inconclusive evidence, and 2 for setup/harness failure.
+6. Retain the receipt with its source commit, tracked-diff checksum, harness and built-file checksums, runtime, request bounds, and fault labels. Shared evidence must omit credentials and account metadata.
+
+| Case | Expected outcome | Diagnostic | Mapped CLI exit |
+| --- | --- | --- | ---: |
+| `cancel` | `cancelled` | `reason: caller` | 130 |
+| `transport` | `interrupted` | `network`, phase `stream` | 3 |
+| `deadline` | `interrupted` | `timeout`, phase `stream` | 124 |
+
+### Verification Commands
+
+```sh
+npm run check
+npm run test:live:interruptions -- --live --env-file=.env
+```
+
+For an already configured process environment, omit `--env-file=.env`. These are alternatives, not two live steps. To verify only the harness offline:
+
+```sh
+npm run build
+npm exec --offline -- vitest run tests/live-interruptions.test.ts
+```
+
+Expected live output contains `cancel: PASSED`, `transport: PASSED`, `deadline: PASSED`, and the receipt path under `.work/live-interruptions/`. The production CLI and library contracts are unchanged.
+
+### Cleanup
+
+The harness cancels/releases its upstream reader and removes its abort listener. The core runner owns deadline, SDK reader, and caller listener cleanup. No background service is installed. Keep the required evidence; scratch output and credential files remain ignored.
+
+### Troubleshooting Notes
+
+- A response that ends before fault injection, HTTP 200 without text, or an already-buffered normal completion that wins over a local transport/stall fault is inconclusive and never a passing interruption. The actual result is preserved. Pre-stream authentication/provider failures are recorded without retries.
+- Triggering from decoded text avoids relying on a guessed first-token delay. Raw response bytes are passed unchanged to the SDK; the harness does not implement another SSE parser.
+- The stall case cancels its upstream reader immediately but deliberately holds local delivery open until the runner's deadline. This tests local timeout handling, not an upstream provider's timeout.
+- A normal `length` finish is success with a warning, not an interruption test. An observed finish reason can remain present on an interrupted result because it is provisional until SDK exhaustion.
+- Physical console Ctrl+C, production-bin execution, natural upstream errors, billing cessation, and other models/platforms remain separate evidence boundaries.
+- On Windows, Node `--import` preload paths must be file URLs; offline subprocess tests use `pathToFileURL` rather than raw drive-letter paths.
 
 ## Recording
 
