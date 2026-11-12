@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.work/
+.superpowers/
+coverage/
+*.tgz
+.env
+.env.*
+!.env.example
+.codebase-memory/

@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "rootDir": ".", "outDir": "../.work/examples", "declaration": false, "sourceMap": false },
+  "include": ["*.ts"]
+}

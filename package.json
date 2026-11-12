@@ -1,0 +1,33 @@
+{
+  "name": "streamcheck",
+  "version": "0.1.0",
+  "description": "Diagnose OpenRouter streaming failures without losing partial output.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": { "name": "Danny Mitchell", "url": "https://github.com/dannymitchelldev" },
+  "repository": { "type": "git", "url": "git+https://github.com/dannymitchelldev/streamcheck.git" },
+  "homepage": "https://github.com/dannymitchelldev/streamcheck#readme",
+  "bugs": { "url": "https://github.com/dannymitchelldev/streamcheck/issues" },
+  "keywords": ["openrouter", "streaming", "llm", "cli", "typescript", "diagnostics"],
+  "engines": { "node": ">=22.12.0" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "bin": { "streamcheck": "./dist/bin.js" },
+  "files": ["dist", "src", "docs", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:sdk": "vitest run tests/sdk-boundary.test.ts",
+    "test:package": "node scripts/package-smoke.mjs",
+    "check": "npm run typecheck && npm test && npm run test:package",
+    "demo": "node dist/bin.js demo interrupted",
+    "record:demo": "npm run build && node scripts/record-demo.mjs",
+    "checksum": "node scripts/checksum.mjs",
+    "example:demo": "npm run build && tsc -p examples/tsconfig.json && node .work/examples/demo.js",
+    "example:live": "npm run build && tsc -p examples/tsconfig.json && node .work/examples/live.js"
+  },
+  "dependencies": { "@openrouter/sdk": "1.5.91" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "7.0.2", "vitest": "5.1.0" }
+}

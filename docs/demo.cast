@@ -1,0 +1,4 @@
+{"version":2,"width":88,"height":18,"timestamp":1794448098,"title":"StreamCheck offline interrupted stream","env":{"TERM":"xterm-256color"}}
+[1.8490052999999997,"o","Webhooks send HTTP notifications"]
+[1.960259,"o"," when an event"]
+[2.0775449,"o","\r\n\r\n[Offline demo]\r\nOutcome:         Interrupted\r\nFirst token:     125 ms\r\nElapsed:         352 ms\r\nPartial output:  Preserved\r\nHTTP status:     200\r\nFailure:         Provider error during streaming\r\n"]
