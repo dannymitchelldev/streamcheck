@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — 2026-11-12
+
+- Reject malformed API-key header values as input diagnostics before transport, with CLI exit 2 and no credential disclosure. Fixes [#1](https://github.com/dannymitchelldev/streamcheck/issues/1).
+- Preserve the first observed finish reason when `onText` throws or synchronously cancels on a combined text/finish frame, while retaining text and terminal-outcome precedence. Fixes [#2](https://github.com/dannymitchelldev/streamcheck/issues/2).
+- Add regression and normalization-control coverage, and block provider network access in CLI test subprocesses.
+
 ## 0.1.0 — 2026-11-12
 
 Initial release.

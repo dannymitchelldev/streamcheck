@@ -55,10 +55,10 @@ Human mode sends exact received text to stdout and its summary to stderr. JSON m
 
 ## Library
 
-From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.1.0):
+From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.1.1):
 
 ```sh
-npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.1.0/streamcheck-0.1.0.tgz
+npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.1.1/streamcheck-0.1.1.tgz
 ```
 
 ```typescript
@@ -85,6 +85,8 @@ runDemo(options?: DemoOptions): Promise<RunResult>
 ```
 
 Live options require `apiKey`, `model`, and `prompt`; both operations accept `signal`, `timeoutMs`, and synchronous `onText`. Defaults are a 30,000 ms overall deadline and, for live runs, 256 maximum output tokens. No retries or automatic continuation occur.
+
+An API key that cannot form a valid HTTP authorization header returns an input diagnostic before any request is sent.
 
 ## Why these decisions?
 
@@ -124,7 +126,7 @@ Every input/configuration diagnostic exits **2**. Timeout exits **124**, includi
 - **Partial output:** true exactly when text is nonempty and normal completion was not accepted. Successful `length` and `content_filter` results set it false and carry `token_limit` / `content_filter` warnings. The flag does not judge answer quality.
 - **Completion:** a normal finish reason is provisional while accounting frames drain. A later observable error, conflict, cancellation, or deadline can still win. Identical repeated reasons are harmless. Tool calls are unsupported.
 - **Cancellation:** first accepted terminal outcome wins. Deadline and caller-abort handlers record their cause before aborting transport. A pre-aborted signal sends no request. Accepted success survives later cancellation.
-- **Callbacks:** each text delta is accumulated before synchronous `onText`. A thrown callback preserves its triggering delta. Do not pass async callbacks; promises and asynchronous rejections are outside this contract.
+- **Callbacks:** each text delta is accumulated before synchronous `onText`. A thrown callback preserves its triggering delta. The first observed finish reason is retained even when a callback throws or cancels on the same frame. Do not pass async callbacks; promises and asynchronous rejections are outside this contract.
 - **Timing:** first-token time means time to the first nonempty text delta. It excludes initial module loading and is not a tokenizer measurement. Elapsed time ends when a terminal outcome is accepted, before final cleanup.
 
 ## Troubleshooting and limits

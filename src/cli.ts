@@ -98,7 +98,7 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     const { values, positionals } = parsed;
     if (json && (values.help || values.version || !command)) return await invalid('--json requires a run or demo command');
     if (values.help || args.length === 0) { await write(process.stdout, HELP); return 0; }
-    if (values.version) { await write(process.stdout, '0.1.0\n'); return 0; }
+    if (values.version) { await write(process.stdout, '0.1.1\n'); return 0; }
     if (command !== 'run' && command !== 'demo') return await invalid('Choose run or demo; see --help');
     if (positionals.length > (command === 'run' ? 1 : 2)) return await invalid('Unexpected positional arguments; see --help');
     if (command === 'demo' && (values.model !== undefined || values.prompt !== undefined || values['max-tokens'] !== undefined)) return await invalid('--model, --prompt, and --max-tokens apply only to run');
