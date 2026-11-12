@@ -58,6 +58,7 @@ Tests release timers/readers/listeners. The package-consumer check removes only 
 - When changing argument parsing, cover missing option values before standalone --json, literal --prompt=--json, and the -- terminator. Strict and permissive Node argument parsing interpret missing values differently.
 - SDK fixtures must not let another choice's finish certify choice zero. Unexpected/duplicate choice entries are protocol failures; already retained text must survive.
 - A cold npm cache exposed an old ENOTCACHED failure: npm ci cached package files without all registry manifests needed by a separate --offline install. Consumer dependency installation now permits npm access. Runtime provider access remains blocked, and installed CLI resolution remains offline.
+- Cancellation fixtures must match native fetch signal precedence: `init?.signal ?? request.signal`. SDK 1.5.91 supplies a strongly retained signal through `RequestInit`; observing only the request's weakly linked signal can hang after Node garbage collection. This reproduced an intermittent 10-second compatibility-test timeout without any provider traffic; the fixture now observes the effective signal.
 
 ## Release artifact verification
 
