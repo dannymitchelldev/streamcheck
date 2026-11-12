@@ -88,8 +88,8 @@ Packing writes the archive; checksum generation writes SHA256SUMS beside it. The
 ### Verification Commands
 
 ```sh
-npm run test:package -- <path-to-streamcheck-0.1.0.tgz>
-npm run checksum -- <path-to-streamcheck-0.1.0.tgz>
+npm run test:package -- <path-to-streamcheck-0.1.1.tgz>
+npm run checksum -- <path-to-streamcheck-0.1.1.tgz>
 npm run checksum -- --check <path-to-SHA256SUMS>
 ```
 
@@ -104,6 +104,53 @@ Keep published artifacts/checksums as release evidence. Remove only task-owned t
 ### Troubleshooting Notes
 
 Explicit LF compiler output removes host newline ambiguity. Archive source-map paths must resolve to shipped src files. A raw .cast source is linked, not expected to render inline. MacOS and physical console Ctrl+C are not established by the four-job matrix.
+
+## Patch regressions (v0.1.1)
+
+Last verified: 2026-11-12. Eight initial cases reproduced the two defects against v0.1.0. Independent review added four failing control-character library/CLI cases and a previously passing header-normalization control. All 14 targeted regression/control checks and the full 108-test check passed after correction, including type checks, build, and the fresh package consumer.
+
+### Purpose
+
+Check malformed credential classification and retention of finish metadata when a synchronous text callback terminates a run.
+
+### Setup / Seed Data
+
+Use the locked dependencies and synthetic credentials only. Library cases inject HTTP/SSE fixtures; CLI subprocesses preload a fetch guard that forbids provider network access.
+
+### Safe Actions
+
+The regression commands below send no provider requests. Valid-credential connection failures must remain network diagnostics.
+
+### Destructive / Mutating Actions
+
+The build writes ignored dist files. A full check also creates and cleans up its own isolated package consumer. Neither command publishes a release.
+
+### Steps
+
+1. Build the CLI so subprocess tests use the current runner.
+2. Run the targeted regressions and the genuine-connection-failure control.
+3. Run the full check; the expected suite is 108 tests.
+
+### Verification Commands
+
+```sh
+npm run build
+npm exec --offline -- vitest run tests/runner.test.ts tests/cli.test.ts -t 'API key containing|malformed credential headers|finish reason from the triggering frame|authorization-header normalization|returns null HTTP status'
+npm run check
+```
+
+Expected: the targeted command passes 14 cases. Malformed header values produce input/setup diagnostics before transport, and the built CLI returns one JSON result with exit 2. Callback throw, caller abort, and abort-then-throw retain the same frame's finish reason and text while preserving the accepted outcome.
+
+### Cleanup
+
+No service, credentials, or persistent output is created. Generated build and check artifacts remain ignored.
+
+### Troubleshooting Notes
+
+- Cover embedded LF, CR, NUL, SOH, vertical tab, DEL, and a character outside the HTTP header ByteString range; do not use a real credential in a fixture or test name.
+- Headers alone accepts some characters that the Node transport rejects. Validate the normalized HTTP field value too, while retaining the SDK's trailing-whitespace normalization.
+- Use a combined text/finish frame. A later finish frame does not reproduce the callback metadata defect.
+- Keep finish metadata separate from accepting normal completion: later observable failures while draining must still win.
 
 ## Recording
 

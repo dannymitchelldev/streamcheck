@@ -119,6 +119,25 @@ describe('result and stream boundaries', () => {
     expect(JSON.stringify(result)).not.toContain('PRIVATE-CONSUMER-DETAIL');
   });
 
+  it.each(['throw', 'abort', 'abort-and-throw'] as const)('retains the finish reason from the triggering frame when onText terminates with %s', async action => {
+    const abort = new AbortController();
+    const result = await runWithTransport({
+      ...valid,
+      signal: abort.signal,
+      onText() {
+        if (action !== 'throw') abort.abort();
+        if (action !== 'abort') throw new Error('PRIVATE-CALLBACK-DETAIL');
+      },
+    }, fixedFetcher(sse(chunk('Last text', 'stop'), '[DONE]')));
+    expect(result).toMatchObject({
+      outcome: action === 'throw' ? 'interrupted' : 'cancelled',
+      text: 'Last text', partialOutput: true, httpStatus: 200, finishReason: 'stop',
+    });
+    if (action === 'throw') expect(result).toMatchObject({ error: { kind: 'consumer', phase: 'stream' } });
+    else expect(result).toMatchObject({ reason: 'caller' });
+    expect(JSON.stringify(result)).not.toContain('PRIVATE-CALLBACK-DETAIL');
+  });
+
   it('reports a network reset after preserving text', async () => {
     const fixture = controlledResponse();
     let first!: () => void;
@@ -146,6 +165,36 @@ describe('result and stream boundaries', () => {
 });
 
 describe('validation and cancellation lifecycle', () => {
+  it.each([
+    ['line feed', 'synthetic-invalid\nkey'],
+    ['carriage return', 'synthetic-invalid\rkey'],
+    ['NUL', 'synthetic-invalid\0key'],
+    ['non-ByteString character', 'synthetic-invalid\u0100key'],
+    ['SOH control', 'synthetic-invalid\u0001key'],
+    ['vertical tab', 'synthetic-invalid\u000bkey'],
+    ['DEL', 'synthetic-invalid\u007fkey'],
+  ] as const)('rejects an API key containing %s as input before transport', async (_label, apiKey) => {
+    const fetcher = vi.fn(fixedFetcher(sse(chunk('Unexpected request', 'stop'), '[DONE]')));
+    const result = await runWithTransport({ ...valid, apiKey }, fetcher);
+    expect(result).toMatchObject({
+      outcome: 'failed', text: '', partialOutput: false, firstTokenMs: null,
+      httpStatus: null, error: { kind: 'input', phase: 'setup' },
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('synthetic-invalid');
+  });
+
+  it('preserves SDK authorization-header normalization for an otherwise valid credential', async () => {
+    const fixture = fixedFetcher(sse(chunk('Done', 'stop'), '[DONE]'));
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      expect((input as Request).headers.get('authorization')).toBe('Bearer synthetic-normalized');
+      return fixture(input);
+    });
+    const result = await runWithTransport({ ...valid, apiKey: 'synthetic-normalized \r\n\t' }, fetcher);
+    expect(result).toMatchObject({ outcome: 'success', text: 'Done', httpStatus: 200 });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it.each([
     { apiKey: '' }, { model: ' ' }, { prompt: '' }, { timeoutMs: 0 }, { timeoutMs: -1 },
     { timeoutMs: 2_147_483_648 }, { timeoutMs: NaN }, { maxTokens: 0 }, { maxTokens: 1.5 },

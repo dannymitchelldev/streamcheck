@@ -1,5 +1,6 @@
 import type { Fetcher } from '@openrouter/sdk/lib/http.js';
 import type { ChatStreamChunk } from '@openrouter/sdk/models';
+import { validateHeaderValue } from 'node:http';
 import { createSdk } from './sdk.js';
 import type { Diagnostic, FailureResult, LiveOptions, ResultBase, RunResult, RunSource, WarningCode } from './types.js';
 
@@ -18,6 +19,11 @@ export function inputFailure(message: string, source: RunSource | null = null, m
 function validate(options: LiveOptions): string | null {
   if (!options || typeof options !== 'object') return 'Run options are required';
   if (typeof options.apiKey !== 'string' || !options.apiKey.trim()) return 'An OpenRouter API key is required';
+  try {
+    const headers = new Headers({ authorization: `Bearer ${options.apiKey}` });
+    validateHeaderValue('authorization', headers.get('authorization') ?? '');
+  }
+  catch { return 'The OpenRouter API key contains invalid HTTP header characters'; }
   if (typeof options.model !== 'string' || !options.model.trim()) return 'A nonempty model is required';
   if (typeof options.prompt !== 'string' || !options.prompt.trim()) return 'A nonempty prompt is required';
   if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > MAX_TIMEOUT)) return 'Timeout must be an integer from 1 to 2147483647 milliseconds';
@@ -112,6 +118,9 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
             break;
           }
           const selected = value.choices[0];
+          // Keep observed metadata even if the text callback ends this run.
+          const observedReason = selected?.finishReason;
+          if (finishReason === null && observedReason) finishReason = observedReason;
           const delta = selected?.delta.content;
           if (typeof delta === 'string' && delta.length > 0) {
             if (firstTokenMs === null) firstTokenMs = performance.now() - startedAt;
@@ -120,8 +129,6 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
             catch { fail('consumer', 'The synchronous onText callback failed'); }
           }
           if (terminal) break;
-          const observedReason = selected?.finishReason;
-          if (finishReason === null && observedReason) finishReason = observedReason;
           if (value.error) {
             fail('provider', 'Provider error during streaming', value.error.code);
             break;

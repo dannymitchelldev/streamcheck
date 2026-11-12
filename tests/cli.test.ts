@@ -1,13 +1,15 @@
 import { spawn, fork } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { exitCodeFor } from '../src/cli.js';
 import { inputFailure } from '../src/runner.js';
 
 const bin = fileURLToPath(new URL('../dist/bin.js', import.meta.url));
+const offlinePreload = new URL('./offline-cli.mjs', import.meta.url).href;
 function invoke(args: string[], envOverrides: NodeJS.ProcessEnv = {}) {
   return new Promise<{ code: number | null; out: string; err: string }>((resolve, reject) => {
-    const child = spawn(process.execPath, [bin, ...args], {
+    const child = spawn(process.execPath, ['--import', offlinePreload, bin, ...args], {
       env: { ...process.env, OPENROUTER_API_KEY: 'synthetic-key-never-log', OPENROUTER_DEBUG: 'true', ...envOverrides },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -85,6 +87,17 @@ it('reports missing credentials as a JSON input diagnostic with exit 2', async (
   expect(JSON.parse(actual.out)).toMatchObject({ source: 'live', httpStatus: null, error: { kind: 'input', phase: 'setup' } });
 });
 
+it.each([
+  ['line feed', 'synthetic-invalid\nkey'],
+  ['DEL', 'synthetic-invalid\u007fkey'],
+] as const)('reports malformed credential headers (%s) as a JSON input diagnostic with exit 2', async (_label, apiKey) => {
+  const actual = await invoke(['run', '--model', 'offline/model', '--prompt', 'hello', '--json'], { OPENROUTER_API_KEY: apiKey });
+  expect(actual.code).toBe(2);
+  expect(actual.err).toBe('');
+  expect(JSON.parse(actual.out)).toMatchObject({ source: 'live', outcome: 'failed', httpStatus: null, error: { kind: 'input', phase: 'setup' } });
+  expect(actual.out).not.toContain('synthetic-invalid');
+});
+
 it.each(['1', '150'])('uses timeout exit 124 with one JSON result at %s ms', async timeout => {
   const actual = await invoke(['demo', 'interrupted', '--timeout', timeout, '--json']);
   expect(actual.code).toBe(124);
@@ -103,12 +116,13 @@ it.each([[], ['--help'], ['run', '--help']])('prints help without requiring cred
 });
 
 it('prints the package version', async () => {
-  expect(await invoke(['--version'])).toEqual({ code: 0, out: '0.1.0\n', err: '' });
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  expect(await invoke(['--version'])).toEqual({ code: 0, out: `${version}\n`, err: '' });
 });
 
 it.each([true, false])('maps the SIGINT handler to cancellation and exit 130 (json=%s)', async json => {
   const actual = await new Promise<{ code: number | null; out: string; err: string }>((resolve, reject) => {
-    const child = fork(fileURLToPath(new URL('./interrupt-child.mjs', import.meta.url)), ['demo', 'interrupted', ...(json ? ['--json'] : [])], { silent: true });
+    const child = fork(fileURLToPath(new URL('./interrupt-child.mjs', import.meta.url)), ['demo', 'interrupted', ...(json ? ['--json'] : [])], { silent: true, execArgv: ['--import', offlinePreload] });
     let out = ''; let err = ''; let interrupted = false;
     const interrupt = () => { if (!interrupted) { interrupted = true; child.send('interrupt'); } };
     child.on('message', message => { if (json && message === 'running') interrupt(); });

@@ -1,6 +1,6 @@
 # Implementation and review record
 
-## Implementation
+## v0.1.0 implementation
 
 AI-assisted implementation from an explicitly reviewed, bounded design. Product code is TypeScript; one package contains the library and CLI. The initial build was local; the first public release adds packaging and distribution checks without changing the library contract.
 
@@ -60,3 +60,16 @@ Release regression tests were observed failing before these changes. The checksu
 Independent publication review (2026-11-12): completed by a separate AI reviewer over the 37-file public inventory, release scripts, metadata, workflow, tests, examples, and documentation. No Critical, Important, or Minor release defects were found. Core runtime correctness was outside this publication pass and remains covered by the earlier implementation review.
 
 Local publication validation passed on Windows / Node 24.18.0 / npm 11.16.0 with a newly populated npm cache: type checks, build, **95/95 tests** (55.69 seconds), and archive/fresh-consumer checks. Locked dependency versions were unchanged. Two release tests were observed failing before implementation and passing afterward. The public release notes provide the exact-commit CI and downloaded-artifact receipts; this local result alone is not cross-platform evidence.
+
+## v0.1.1 patch
+
+The final public-release review reproduced two minor runtime defects, tracked as [#1](https://github.com/dannymitchelldev/streamcheck/issues/1) and [#2](https://github.com/dannymitchelldev/streamcheck/issues/2). Eight initial regression cases were observed failing against the v0.1.0 implementation before either fix.
+
+- Validate the authorization-header value before SDK construction. Invalid embedded control characters and non-ByteString characters now return input/setup diagnostics without invoking transport or exposing the key. A genuine connection TypeError retains its network classification; a built-CLI regression checks JSON and exit 2.
+- Record the first observed finish reason before invoking onText. Callback throw, synchronous caller abort, and abort-then-throw now retain the same frame's finish metadata and exact text. Finish reasons remain provisional; this does not accept success earlier or change which terminal outcome wins.
+
+CLI test subprocesses now preload a provider-fetch guard. The patch changes no locked dependency versions and adds no public API fields.
+
+Independent patch review caught a gap in Headers-only validation: SOH, vertical tab, and DEL are accepted by Headers but rejected by the Node transport. Four additional library/CLI cases were observed failing before adding Node's HTTP field-value validation after header normalization. A separate control preserves the SDK's existing trailing-whitespace normalization. The reviewer also caught a missing fetch guard on the SIGINT subprocess; it now uses the same preload as the other CLI tests.
+
+All 14 targeted regression/control checks passed after these corrections. Final local `npm run check` passed type checks, build, **108/108 tests**, and the fresh packed-consumer check on Windows / Node 24.18.0. Independent AI patch re-review confirmed both review findings resolved, with no remaining runtime findings; additional offline probes covered malformed headers, normalization, genuine connection failure, callback races, and built-CLI JSON/exit codes. Release notes identify the final exact-commit CI run and archive verification. Human implementation review, live providers, macOS, and physical console Ctrl+C remain unverified.
