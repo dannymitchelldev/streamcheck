@@ -211,6 +211,8 @@ Keep nonsecret evidence needed for review. Credential files and raw scratch outp
 
 Offline harness verified 2026-11-12: all 9 targeted tests passed, followed by `npm run check` with type checks, build, **117 tests**, and the packed-package consumer on Windows / Node 24.18.0. Independent review confirmed the buffered-completion classification correction. Live results are recorded separately from this synthetic verification.
 
+Live verified 2026-11-12 at clean implementation commit `9490d5311ccf2abb442f39516ca9169109dd1ec8`, Windows / Node 24.18.0 / SDK 1.5.91 / `openai/gpt-4.1-nano`. Exactly three requests passed all **33 assertions**, with HTTP 200 and exact callback-text preservation in every case. Cancellation retained `Sure` at 789.170 ms; transport failure retained `I` at 690.057 ms; the stalled deadline retained `I` at 30,003.504 ms. The whole command exited 0. Per-case shared CLI mappings were 130, 3, and 124; no production CLI subprocess was executed. [Machine-readable receipt](verification/live-interruptions-2026-11-12.json).
+
 ### Purpose
 
 Verify three interruption paths after receiving genuine live text: caller cancellation, a locally injected transport read error, and a locally stalled body that reaches the existing overall deadline. These are deliberate local faults, not naturally occurring upstream provider errors.

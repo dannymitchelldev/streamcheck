@@ -1,0 +1,167 @@
+{
+  "evidenceVersion": 1,
+  "kind": "live-stream-with-locally-injected-faults",
+  "startedAtUtc": "2026-11-12T21:29:10.685Z",
+  "completedAtUtc": "2026-11-12T21:29:42.252Z",
+  "commit": "9490d5311ccf2abb442f39516ca9169109dd1ec8",
+  "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "runtime": {
+    "nodeVersion": "v24.18.0",
+    "platform": "win32",
+    "harnessSha256": "441cbec5c1d8b0ddd10378696370139633f280124733e65ffce958b1582e6cde",
+    "packageVersion": "0.1.1",
+    "sdkVersion": "1.5.91",
+    "builtFileSha256": {
+      "runner": "802273c617cc8b053dd6ed2a9927abd9acde3a34447ca5a765f7525bf5f253e8",
+      "sdk": "a9d59dc3c75c888fe00374302d852bda3018ab6b631e8aacb9f612879e5d62f4",
+      "cli": "3afe3c1a6abadf52baa59585bce0241d215eed079095e9551e047e8b0200d63c",
+      "index": "bfc875bde9a787871b614d76f972b8be7468d075c19ddaac1dc936bd250bcfc2"
+    }
+  },
+  "request": {
+    "model": "openai/gpt-4.1-nano",
+    "prompt": "Write the numbers from 1 to 1000, one number per line. Continue until the output limit.",
+    "maxTokens": 128,
+    "timeoutMs": 30000,
+    "automaticRetries": false
+  },
+  "cliExitEvidence": "Shared production exit mapper only; production CLI subprocess and physical Ctrl+C are not exercised.",
+  "scope": "Genuine live text with deliberate local faults; not natural upstream provider failures or proof that billing stopped.",
+  "cases": [
+    {
+      "scenario": "cancel",
+      "faultOrigin": "local-test-harness",
+      "verdict": "passed",
+      "injection": {
+        "fired": true,
+        "textLengthAtTrigger": 4,
+        "elapsedMs": 789.2359000000001
+      },
+      "requestCount": 1,
+      "upstreamReaderCancelled": true,
+      "receivedText": "Sure",
+      "textCallbacks": 1,
+      "cliExitCode": 130,
+      "result": {
+        "schemaVersion": 1,
+        "source": "live",
+        "model": "openai/gpt-4.1-nano",
+        "text": "Sure",
+        "partialOutput": true,
+        "firstTokenMs": 788.9300000000001,
+        "elapsedMs": 789.1703,
+        "httpStatus": 200,
+        "finishReason": null,
+        "warnings": [],
+        "outcome": "cancelled",
+        "reason": "caller"
+      },
+      "checks": {
+        "oneRequest": true,
+        "observedHttp200": true,
+        "faultAfterText": true,
+        "exactTextPreserved": true,
+        "partialOutput": true,
+        "expectedOutcome": true,
+        "expectedDiagnostic": true,
+        "expectedCliExitMapping": true,
+        "timing": true,
+        "upstreamReaderCancelled": true,
+        "callerSignal": true
+      }
+    },
+    {
+      "scenario": "transport",
+      "faultOrigin": "local-test-harness",
+      "verdict": "passed",
+      "injection": {
+        "fired": true,
+        "textLengthAtTrigger": 1,
+        "elapsedMs": 689.6415999999999
+      },
+      "requestCount": 1,
+      "upstreamReaderCancelled": true,
+      "receivedText": "I",
+      "textCallbacks": 1,
+      "cliExitCode": 3,
+      "result": {
+        "schemaVersion": 1,
+        "source": "live",
+        "model": "openai/gpt-4.1-nano",
+        "text": "I",
+        "partialOutput": true,
+        "firstTokenMs": 689.6205,
+        "elapsedMs": 690.0569,
+        "httpStatus": 200,
+        "finishReason": null,
+        "warnings": [],
+        "outcome": "interrupted",
+        "error": {
+          "kind": "network",
+          "phase": "stream",
+          "message": "Stream connection interrupted"
+        }
+      },
+      "checks": {
+        "oneRequest": true,
+        "observedHttp200": true,
+        "faultAfterText": true,
+        "exactTextPreserved": true,
+        "partialOutput": true,
+        "expectedOutcome": true,
+        "expectedDiagnostic": true,
+        "expectedCliExitMapping": true,
+        "timing": true,
+        "upstreamReaderCancelled": true,
+        "callerSignal": true
+      }
+    },
+    {
+      "scenario": "deadline",
+      "faultOrigin": "local-test-harness",
+      "verdict": "passed",
+      "injection": {
+        "fired": true,
+        "textLengthAtTrigger": 1,
+        "elapsedMs": 674.0177999999996
+      },
+      "requestCount": 1,
+      "upstreamReaderCancelled": true,
+      "receivedText": "I",
+      "textCallbacks": 1,
+      "cliExitCode": 124,
+      "result": {
+        "schemaVersion": 1,
+        "source": "live",
+        "model": "openai/gpt-4.1-nano",
+        "text": "I",
+        "partialOutput": true,
+        "firstTokenMs": 674.0031999999997,
+        "elapsedMs": 30003.504,
+        "httpStatus": 200,
+        "finishReason": null,
+        "warnings": [],
+        "outcome": "interrupted",
+        "error": {
+          "kind": "timeout",
+          "phase": "stream",
+          "message": "Overall streaming deadline exceeded"
+        }
+      },
+      "checks": {
+        "oneRequest": true,
+        "observedHttp200": true,
+        "faultAfterText": true,
+        "exactTextPreserved": true,
+        "partialOutput": true,
+        "expectedOutcome": true,
+        "expectedDiagnostic": true,
+        "expectedCliExitMapping": true,
+        "timing": true,
+        "upstreamReaderCancelled": true,
+        "callerSignal": true
+      }
+    }
+  ],
+  "verdict": "passed"
+}

@@ -31,6 +31,7 @@ AI-assisted implementation from an explicitly reviewed, bounded design. Product 
 | Typed examples | Both compile; offline example executed; live example not executed |
 | Windows/Ubuntu, Node 22.12.0/24 GitHub Actions | [Current workflow results](https://github.com/dannymitchelldev/streamcheck/actions/workflows/ci.yml?query=branch%3Amain); release notes identify the validated commit |
 | Live OpenRouter integration | One bounded v0.1.1 CLI smoke passed on 2026-11-12: Windows / Node 24.18.0 / `openai/gpt-4.1-nano`; [receipt](verification/live-provider-2026-11-12.json) |
+| Live text with injected local faults | Three manual library cases passed on 2026-11-12: caller abort, transport read failure, and stalled deadline; [receipt](verification/live-interruptions-2026-11-12.json) |
 | SIGINT handling | Portable subprocess event harness passed; physical Windows console Ctrl+C unverified |
 
 ## Reviews
@@ -49,7 +50,7 @@ The two initially Minor findings were treated as contract-impacting for this dia
 
 ## Remaining verification boundaries
 
-The original local evidence covered Windows / Node 24.18.0. The release workflow records the additional platform/runtime evidence at its actual commit. A later live smoke verified one successful completion on the recorded model/platform. Live provider failures, macOS, physical console Ctrl+C, and human implementation review remain unverified. The intentionally accepted SDK trailing-frame blind spot remains documented.
+The original local evidence covered Windows / Node 24.18.0. The release workflow records the additional platform/runtime evidence at its actual commit. Later live checks verified one successful completion and three locally induced fault paths on the recorded model/platform. Naturally occurring upstream provider failures, macOS, physical console Ctrl+C, and human implementation review remain unverified. The intentionally accepted SDK trailing-frame blind spot remains documented.
 
 ## Publication checks
 
@@ -87,3 +88,13 @@ The [receipt](verification/live-provider-2026-11-12.json) records the source com
 The source-checkout command `npm run test:live:interruptions -- --live` exercises caller cancellation, transport read failure, and a stalled deadline after SDK-decoded nonempty text. It uses the existing transport seam and unchanged native response bytes; production source, public API, dependencies, and CI workflow are unchanged. The script requires explicit live opt-in, rejects CI, permits one native request per case, runs cases sequentially, and saves incremental nonsecret receipts. Per-case CLI codes come from the shared production mapper; the production CLI binary and physical console Ctrl+C are outside this harness.
 
 Eight initial offline harness cases failed before implementation, then passed through the real built runner and pinned SDK with synthetic transport only. A Windows preload-path failure was corrected by using file URLs. Independent read-only AI review examined request gates, buffered SSE events, text preservation, pending reads, fragmented UTF-8, cleanup, and evidence scope. It found one minor classification issue: already-buffered completion could make a stall experiment report failed rather than inconclusive. A new regression was observed failing before the correction and passing afterward; the reviewer confirmed the finding resolved with no additional correctness findings. The actual completion result and failed assertions remain visible, and inconclusive evidence never passes the overall command.
+
+The final offline check passed type checks, build, **117/117 tests**, and the packed-package consumer. The implementation was committed as `9490d5311ccf2abb442f39516ca9169109dd1ec8` before live execution. A subsequent explicit invocation made exactly three live requests on Windows / Node 24.18.0 / SDK 1.5.91 / `openai/gpt-4.1-nano`; all **33 live evidence assertions passed**, and the manual command exited 0.
+
+| Local fault | Actual result | Retained text | Elapsed | Shared CLI mapping |
+| --- | --- | --- | ---: | ---: |
+| Caller abort after text | `cancelled`, reason `caller` | `Sure` | 789.170 ms | 130 |
+| Transport read error after text | `interrupted`, `network` / `stream` | `I` | 690.057 ms | 3 |
+| Stalled local body until deadline | `interrupted`, `timeout` / `stream` | `I` | 30,003.504 ms | 124 |
+
+Each case observed HTTP 200, retained exactly the text delivered through callbacks, set `partialOutput: true`, and completed upstream reader cancellation. The [receipt](verification/live-interruptions-2026-11-12.json) records actual results, failed-or-passed checks, injection timing, source/runtime checksums, and request bounds. The nominal deadline can be observed slightly late because timer execution is scheduled by the event loop. These results establish live client behavior under deliberate local faults; they do not establish a natural upstream error, physical console Ctrl+C, production-bin subprocess behavior, billing cessation, or long-term reliability.
