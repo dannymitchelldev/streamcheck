@@ -207,6 +207,73 @@ Keep nonsecret evidence needed for review. Credential files and raw scratch outp
 - One successful generation establishes the observed model/platform combination at that time. Provider interruption recovery, rate limits, physical console Ctrl+C, other operating systems, and sustained reliability require separate evidence.
 - Completion remains SDK-observed. The SDK's documented trailing-frame limitation still applies.
 
+## Manual live interruption checks
+
+Offline harness verified 2026-11-12: all 9 targeted tests passed, followed by `npm run check` with type checks, build, **117 tests**, and the packed-package consumer on Windows / Node 24.18.0. Independent review confirmed the buffered-completion classification correction. Live results are recorded separately from this synthetic verification.
+
+### Purpose
+
+Verify three interruption paths after receiving genuine live text: caller cancellation, a locally injected transport read error, and a locally stalled body that reaches the existing overall deadline. These are deliberate local faults, not naturally occurring upstream provider errors.
+
+### Setup / Seed Data
+
+- Use a source checkout with locked dependencies installed. The npm command builds the current runtime before execution; the manual script is not included in the release archive.
+- Supply `OPENROUTER_API_KEY` in the environment or pass an ignored credential file with `--env-file=path`. Credential values never belong in shell arguments.
+- The command requires `--live` and refuses execution whenever `CI` is nonempty, including when an environment file sets it. `--help` is safe in CI.
+- Requests use `openai/gpt-4.1-nano`, a fixed public number-list prompt, at most 128 output tokens, and a 30,000 ms deadline per case. Confirm the model remains available before running.
+
+### Safe Actions
+
+`npm run test:live:interruptions -- --help` and the regular `npm run check` do not contact a provider. Normal tests exercise the manual harness through in-process synthetic HTTP/SSE responses, the real built runner, and the pinned SDK. The manual live entry point is absent from normal CI.
+
+### Destructive / Mutating Actions
+
+An explicit live invocation sends exactly one generation request per case, sequentially, without automatic retries. The fetch wrapper refuses a second attempted request within a case before it reaches native fetch. A local reader cancellation is attempted after each fault; this does not establish that provider processing or billing stopped. Each invocation creates its own ignored evidence directory.
+
+### Steps
+
+1. Run the offline check and review the current source commit.
+2. Supply the credential without printing it. Use the command below once; each invocation can create three billable generations.
+3. Wait for `cancel`, `transport`, and `deadline` results. The stall case normally uses nearly its entire 30-second deadline. Do not automatically repeat failures or inconclusive cases.
+4. Inspect the saved receipt. Every case must show one request, observed HTTP 200, injection after decoded nonempty text, exact equality between received callback text and result text, `partialOutput: true`, finite ordered timing values, the expected terminal outcome/diagnostic, and upstream reader cancellation.
+5. Confirm the per-case mapped CLI codes below. The harness calls the production mapper; these are not production CLI subprocess exit observations. The overall manual command exits 0 only if all cases pass, 1 for failed/inconclusive evidence, and 2 for setup/harness failure.
+6. Retain the receipt with its source commit, tracked-diff checksum, harness and built-file checksums, runtime, request bounds, and fault labels. Shared evidence must omit credentials and account metadata.
+
+| Case | Expected outcome | Diagnostic | Mapped CLI exit |
+| --- | --- | --- | ---: |
+| `cancel` | `cancelled` | `reason: caller` | 130 |
+| `transport` | `interrupted` | `network`, phase `stream` | 3 |
+| `deadline` | `interrupted` | `timeout`, phase `stream` | 124 |
+
+### Verification Commands
+
+```sh
+npm run check
+npm run test:live:interruptions -- --live --env-file=.env
+```
+
+For an already configured process environment, omit `--env-file=.env`. These are alternatives, not two live steps. To verify only the harness offline:
+
+```sh
+npm run build
+npm exec --offline -- vitest run tests/live-interruptions.test.ts
+```
+
+Expected live output contains `cancel: PASSED`, `transport: PASSED`, `deadline: PASSED`, and the receipt path under `.work/live-interruptions/`. The production CLI and library contracts are unchanged.
+
+### Cleanup
+
+The harness cancels/releases its upstream reader and removes its abort listener. The core runner owns deadline, SDK reader, and caller listener cleanup. No background service is installed. Keep the required evidence; scratch output and credential files remain ignored.
+
+### Troubleshooting Notes
+
+- A response that ends before fault injection, HTTP 200 without text, or an already-buffered normal completion that wins over a local transport/stall fault is inconclusive and never a passing interruption. The actual result is preserved. Pre-stream authentication/provider failures are recorded without retries.
+- Triggering from decoded text avoids relying on a guessed first-token delay. Raw response bytes are passed unchanged to the SDK; the harness does not implement another SSE parser.
+- The stall case cancels its upstream reader immediately but deliberately holds local delivery open until the runner's deadline. This tests local timeout handling, not an upstream provider's timeout.
+- A normal `length` finish is success with a warning, not an interruption test. An observed finish reason can remain present on an interrupted result because it is provisional until SDK exhaustion.
+- Physical console Ctrl+C, production-bin execution, natural upstream errors, billing cessation, and other models/platforms remain separate evidence boundaries.
+- On Windows, Node `--import` preload paths must be file URLs; offline subprocess tests use `pathToFileURL` rather than raw drive-letter paths.
+
 ## Recording
 
 Last verified: 2026-11-11.

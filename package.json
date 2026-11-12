@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:sdk": "vitest run tests/sdk-boundary.test.ts",
     "test:package": "node scripts/package-smoke.mjs",
+    "test:live:interruptions": "npm run build && node scripts/live-interruptions.mjs",
     "check": "npm run typecheck && npm test && npm run test:package",
     "demo": "node dist/bin.js demo interrupted",
     "record:demo": "npm run build && node scripts/record-demo.mjs",

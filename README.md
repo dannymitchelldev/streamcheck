@@ -110,6 +110,14 @@ node dist/bin.js run --model <model-id> --prompt "Explain webhooks" --max-tokens
 
 That command explicitly makes a potentially billable request. The library equivalent is `runStreamCheck({ apiKey, model, prompt, signal, onText })`. `npm run example:live -- <model-id>` runs the live TypeScript example. Automated verification never runs either live entry point.
 
+From a source checkout, explicitly verify interruption handling with three bounded live requests:
+
+```sh
+npm run test:live:interruptions -- --live --env-file=.env
+```
+
+Omit `--env-file` when `OPENROUTER_API_KEY` is already in the environment. This manual command uses `openai/gpt-4.1-nano`, up to 128 output tokens and a 30-second deadline per request, with no retries. After decoded text arrives, it separately cancels, injects a transport read error, and stalls local delivery until the deadline. It checks exact text preservation and the shared CLI exit mapping, then writes evidence under ignored `.work/live-interruptions/`. It exits 0 only when every case passes; it does not run the production CLI subprocess or physical Ctrl+C. The command refuses to run when `CI` is set and is excluded from `npm run check` and the CI workflow. [Manual interruption runbook](docs/testing-runbook.md#manual-live-interruption-checks).
+
 ## Results and completion
 
 | Outcome | Meaning | Default CLI exit |
