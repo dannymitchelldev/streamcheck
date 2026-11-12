@@ -1,0 +1,67 @@
+{
+  "evidenceVersion": 1,
+  "description": "One bounded live CLI completion through OpenRouter, without injected transport or automatic SDK retries.",
+  "request": {
+    "requestedAtUtc": "2026-11-12T20:57:07.3897157+00:00",
+    "completedAtUtc": "2026-11-12T20:57:10.3355073+00:00",
+    "commit": "d9795dfb0cdc0fda6c37f887c49bb264d6179286",
+    "packageVersion": "0.1.1",
+    "sdkVersion": "1.5.91",
+    "platform": "win32",
+    "nodeVersion": "v24.18.0",
+    "model": "openai/gpt-4.1-nano",
+    "prompt": "Return exactly STREAMCHECK_OK and nothing else.",
+    "maxTokens": 32,
+    "timeoutMs": 30000,
+    "cliInvocations": 1,
+    "exitCode": 0
+  },
+  "result": {
+    "schemaVersion": 1,
+    "source": "live",
+    "model": "openai/gpt-4.1-nano",
+    "text": "STREAMCHECK_OK",
+    "partialOutput": false,
+    "firstTokenMs": 670.1125999999999,
+    "elapsedMs": 842.1691000000001,
+    "httpStatus": 200,
+    "finishReason": "stop",
+    "warnings": [],
+    "outcome": "success"
+  },
+  "verification": {
+    "verifiedAtUtc": "2026-11-12T20:57:38.677Z",
+    "passed": true,
+    "checks": [
+      "CLI exit 0",
+      "Exactly one JSON result",
+      "No stderr output",
+      "Schema version 1",
+      "Live source",
+      "Requested model",
+      "Successful outcome",
+      "Observed HTTP 200",
+      "Exact marker text",
+      "Normal stop",
+      "No partial output",
+      "No warnings",
+      "No error diagnostic",
+      "Finite first-token and elapsed timings within deadline",
+      "One bounded CLI invocation"
+    ],
+    "stdoutSha256": "6fc90b206e32c08208c21bbcea22d52ab3d599b1bbe224a8afa69b4119c7deb1",
+    "stderrBytes": 0
+  },
+  "scope": {
+    "established": [
+      "Built v0.1.1 CLI, pinned SDK, and live OpenRouter integration on the recorded platform/model",
+      "Observed HTTP status, exact text, normal finish, timing, JSON output, and exit status"
+    ],
+    "notEstablished": [
+      "Live provider interruption, rate-limit, or cancellation behavior",
+      "Other models, operating systems, or sustained reliability",
+      "Complete transport beyond SDK-observed completion",
+      "Billed cost or specific upstream provider identity"
+    ]
+  }
+}

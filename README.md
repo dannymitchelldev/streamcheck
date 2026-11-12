@@ -156,4 +156,6 @@ The full check covers types, library/CLI tests, release checks, and a consumer o
 
 CI runs **Windows/Ubuntu × Node 22.12.0/24**. [View actual runs](https://github.com/dannymitchelldev/streamcheck/actions/workflows/ci.yml?query=branch%3Amain); release notes link the exact validated commit. macOS, live provider behavior, and physical console Ctrl+C are not established by this matrix.
 
+A separate [live OpenRouter smoke check](docs/verification/live-provider-2026-11-12.json) passed on 2026-11-12 with `openai/gpt-4.1-nano`, StreamCheck v0.1.1, and Windows / Node 24.18.0: HTTP 200, exact marker text, normal stop, and CLI exit 0. This establishes one successful live completion; live failure behavior and sustained reliability remain unverified. [Reproduction steps](docs/testing-runbook.md#live-openrouter-smoke-check).
+
 Built with Codex from a reviewed contract, with a separate AI implementation review and reproduced corrections. Human implementation review is not claimed. The [engineering record](docs/engineering-log.md) separates those stages; the [testing runbook](docs/testing-runbook.md) documents reproducible verification. [Contributions](CONTRIBUTING.md) are welcome under [MIT](LICENSE).
