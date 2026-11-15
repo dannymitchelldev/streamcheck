@@ -122,7 +122,7 @@ Omit `--env-file` when `OPENROUTER_API_KEY` is already in the environment. This 
 
 | Outcome | Meaning | Default CLI exit |
 | --- | --- | ---: |
-| `success` | Normal completion accepted through the SDK | 0 |
+| `success` | Normal finish and complete `[DONE]` event observed | 0 |
 | `failed` | Failure before receiving text | 1 |
 | `interrupted` | Failure with received text preserved | 3 |
 | `cancelled` | Caller cancellation, with any text preserved | 130 |
@@ -132,7 +132,7 @@ Every input/configuration diagnostic exits **2**. Timeout exits **124**, includi
 `schemaVersion: 1` results include exact text, timing, observed HTTP status, first finish reason, and warnings. Unknown metadata is `null`. Failed/interrupted results add `error: { kind, phase, message, code? }`; cancellation records `reason: 'caller'`. See the [public TypeScript types](src/types.ts) for every field.
 
 - **Partial output:** true exactly when text is nonempty and normal completion was not accepted. Successful `length` and `content_filter` results set it false and carry `token_limit` / `content_filter` warnings. The flag does not judge answer quality.
-- **Completion:** a normal finish reason is provisional while accounting frames drain. A later observable error, conflict, cancellation, or deadline can still win. Identical repeated reasons are harmless. Tool calls are unsupported.
+- **Completion:** success requires a normal finish reason and a complete SSE `[DONE]` event. A normal finish remains provisional while accounting frames drain; EOF without `[DONE]` or with an unfinished trailing frame is a protocol diagnostic, with received text retained. A later provider error, conflict, cancellation, or deadline can still win. Identical repeated reasons are harmless. Tool calls are unsupported.
 - **Cancellation:** first accepted terminal outcome wins. Deadline and caller-abort handlers record their cause before aborting transport. A pre-aborted signal sends no request. Accepted success survives later cancellation.
 - **Callbacks:** each text delta is accumulated before synchronous `onText`. A thrown callback preserves its triggering delta. The first observed finish reason is retained even when a callback throws or cancels on the same frame. Do not pass async callbacks; promises and asynchronous rejections are outside this contract.
 - **Timing:** first-token time means time to the first nonempty text delta. It excludes initial module loading and is not a tokenizer measurement. Elapsed time ends when a terminal outcome is accepted, before final cleanup.
@@ -143,11 +143,13 @@ Every input/configuration diagnostic exits **2**. Timeout exits **124**, includi
 | --- | --- |
 | HTTP 401 / 429 | Request failed before streaming: authentication / rate limiting |
 | HTTP 200 plus provider diagnostic | Valid provider error arrived inside the stream, possibly before any text |
-| Protocol diagnostic | SDK rejected a payload, finish reason was missing/conflicting, or tool calls appeared |
+| Protocol diagnostic | SDK rejected a payload, a finish reason or `[DONE]` was missing, a trailing frame was unfinished, finish reasons conflicted, or tool calls appeared |
 | Timeout after a finish reason | The finish remained provisional while the stream drained |
 | Null HTTP status | No response metadata was available; StreamCheck never assumes 200 |
 
-The SDK is pinned to **1.5.91**. It accepts numeric chat-stream error codes; a documented string-code shape is rejected as a protocol error. Received text is still retained. The SDK also hides `[DONE]` and discards unfinished trailing SSE frames: after a valid finish reason, a truncated trailing error may remain undetectable. This is SDK-observed completion, not verified complete transport.
+The SDK is pinned to **1.5.91**. It accepts numeric Chat Completions error codes; a string-valued `error.code` in a chat-stream chunk is rejected as a protocol diagnostic, with previously received text retained. Current [OpenRouter documentation](https://openrouter.ai/docs/api_reference/errors-and-debugging) specifies numeric codes for Chat Completions and string codes for the separate Responses API.
+
+StreamCheck observes SSE framing through its custom fetch seam while the official SDK parses and validates payloads. This detects a missing `[DONE]` or unfinished event at EOF. Observation ends at the first complete `[DONE]`, matching the SDK's cancellation behavior; it does not establish HTTP EOF, inspect bytes after that terminal event, or prove an upstream root cause.
 
 Configured API keys, authorization headers, and raw SDK exceptions are never logged. User prompts and model text are not automatically redacted and may themselves contain secrets. There is no telemetry or output persistence.
 

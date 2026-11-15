@@ -2,6 +2,7 @@ import type { Fetcher } from '@openrouter/sdk/lib/http.js';
 import type { ChatStreamChunk } from '@openrouter/sdk/models';
 import { validateHeaderValue } from 'node:http';
 import { createSdk } from './sdk.js';
+import { SseCompletionObserver } from './sse-completion.js';
 import type { Diagnostic, FailureResult, LiveOptions, ResultBase, RunResult, RunSource, WarningCode } from './types.js';
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -59,6 +60,7 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
   let normalReason: string | null = null;
   let phase: Diagnostic['phase'] = 'request';
   const warnings: WarningCode[] = [];
+  const completion = new SseCompletionObserver();
 
   const cancelReader = () => {
     if (reader && !cancelling) cancelling = reader.cancel().catch(() => { /* preserve the accepted outcome */ });
@@ -87,7 +89,7 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
       const sdk = createSdk(options.apiKey, fetcher, response => {
         httpStatus = response.status;
         if (response.ok && response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) phase = 'stream';
-      });
+      }, completion);
       const stream = await sdk.chat.send({
         chatRequest: {
           model: options.model,
@@ -106,8 +108,10 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
           const next = await reader.read();
           if (terminal) break;
           if (next.done) {
-            if (normalReason) accept({ outcome: 'success' });
-            else fail('protocol', 'Stream ended without an observed normal finish reason');
+            if (completion.truncated) fail('protocol', 'Stream ended with an unfinished SSE frame');
+            else if (!completion.done) fail('protocol', 'Stream ended without an observed [DONE] event');
+            else if (!normalReason) fail('protocol', 'Stream ended without an observed normal finish reason');
+            else accept({ outcome: 'success' });
             break;
           }
           const value = next.value;

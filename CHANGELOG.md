@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Require a complete SSE `[DONE]` event as well as a normal finish reason before accepting success. Report missing markers and unfinished trailing frames as protocol diagnostics while preserving received text.
+- Observe framing through the existing custom fetch seam, keeping the pinned SDK for payload parsing and validation, with bounded framing state and source-reader cleanup.
+- Add completion-framing regressions and correct the distinction between numeric Chat Completions error codes and string Responses API codes.
+
 ## 0.1.1 — 2026-11-12
 
 - Reject malformed API-key header values as input diagnostics before transport, with CLI exit 2 and no credential disclosure. Fixes [#1](https://github.com/dannymitchelldev/streamcheck/issues/1).

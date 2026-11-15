@@ -37,7 +37,7 @@ export function controlledResponse() {
     return fixedFetcher(response)(input);
   };
   return {
-    fetcher, requested,
+    fetcher, requested, response,
     emit(event: unknown) { if (!closed) body.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)); },
     raw(wire: string) { if (!closed) body.enqueue(new TextEncoder().encode(wire)); },
     end() { if (!closed) { closed = true; body.close(); } },
