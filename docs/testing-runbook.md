@@ -54,11 +54,42 @@ Tests release timers/readers/listeners. The package-consumer check removes only 
 - Report actual platform/version checks separately from authored CI jobs.
 - CLI subprocess cases intentionally pay the SDK's cold import cost; the final 93-test suite took 54.60 seconds locally. Do not replace subprocess checks with assertions on a fake CLI.
 - SIGINT tests use an IPC harness to emit the Node process event portably, including after partial text. This establishes handler behavior, not physical Windows console Ctrl+C behavior.
-- Tests exercise SDK-observable EOF semantics; no test can establish that the hidden [DONE] marker or a discarded partial frame was received.
+- The SDK gate characterizes its hidden [DONE]/unfinished-event behavior. StreamCheck's completion regressions separately verify its raw framing observer: normal success requires a complete terminal event, and unfinished frames at EOF produce protocol diagnostics.
 - When changing argument parsing, cover missing option values before standalone --json, literal --prompt=--json, and the -- terminator. Strict and permissive Node argument parsing interpret missing values differently.
 - SDK fixtures must not let another choice's finish certify choice zero. Unexpected/duplicate choice entries are protocol failures; already retained text must survive.
 - A cold npm cache exposed an old ENOTCACHED failure: npm ci cached package files without all registry manifests needed by a separate --offline install. Consumer dependency installation now permits npm access. Runtime provider access remains blocked, and installed CLI resolution remains offline.
 - Cancellation fixtures must match native fetch signal precedence: `init?.signal ?? request.signal`. SDK 1.5.91 supplies a strongly retained signal through `RequestInit`; observing only the request's weakly linked signal can hang after Node garbage collection. This reproduced an intermittent 10-second compatibility-test timeout without any provider traffic; the fixture now observes the effective signal.
+
+## SDK completion and error-code boundaries
+
+Last verified: 2026-11-14, using the installed `@openrouter/sdk` 1.5.91. Before the observer was added, the targeted regressions reproduced 13 failures, including false success and a source-reader lock left held after cancellation.
+
+### Purpose
+
+Reproduce the distinction between SDK-observed completion and verified receipt of the Chat Completions terminal event, and check error-code classification.
+
+### Setup and safe actions
+
+Use locked dependencies and synthetic HTTP/SSE fixtures. The commands below make no provider requests, need no credentials, and do not modify runtime code. No cleanup is required.
+
+### Verification commands
+
+```sh
+npm run test:sdk
+npm exec --offline -- vitest run tests/stream-completion.test.ts tests/runner.test.ts
+```
+
+Expected: the SDK gate passes 7 tests; the completion/runner command passes 78 tests. All 85 targeted checks passed after adding the observer. The completion file covers missing markers with and without text, unfinished JSON and marker framing, literal markers in unrelated fields/comments/text, fragmented UTF-8/BOM and LF/CRLF/CR, default fetch, source-reader cleanup, and provider/network precedence.
+
+Full verification on Windows / Node 24.18.0 / npm 11.16.0 passed `npm run check`: type checks, build, all 136 tests, and the actual packed-package consumer. `npm run example:demo` also passed. These are offline fixtures; no new live provider verification or cross-platform result is claimed.
+
+### Interpretation
+
+- Success requires an observed normal finish reason and a complete `[DONE]` data event. Missing `[DONE]` or EOF with an unfinished event produces a protocol failure without text, or interruption with exact previously accepted text preserved. Complete provider errors, source transport errors, consumer failures, cancellation, and deadlines retain their existing precedence.
+- The SDK alone still hides the distinction between `[DONE]`, EOF, and EOF with an unfinished trailing event. StreamCheck now observes raw framing before SDK parsing. Even valid JSON without the event's final blank line is unfinished. Discarding an unfinished event follows the [SSE standard](https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation); StreamCheck reports the missing framing instead of accepting normal completion.
+- A string-valued `error.code` in a Chat Completions chunk causes SDK schema rejection and a StreamCheck protocol diagnostic. Prior accepted text survives. This behavior alone does not establish rejection of a documented Chat Completions response: the current [OpenRouter error documentation](https://openrouter.ai/docs/api_reference/errors-and-debugging) specifies numeric codes for Chat Completions and string codes for the Responses API. Recheck the endpoint-specific documentation before claiming a schema mismatch.
+- `createSdk` injects an `HTTPClient` and wraps either the native or injected fetcher. Its pull-based observer forwards original body bytes, cancellation, errors, and actual response metadata; it keeps bounded framing state without a tee, full-body buffer, or JSON parser. A substring search for `[DONE]` is insufficient.
+- Observation ends at the first complete terminal event, matching SDK cancellation; it does not wait for HTTP EOF or inspect bytes after `[DONE]`. The underlying source reader must be released after EOF, transport errors, and cancellation. No raw frames or SDK exceptions are added to diagnostics or logs.
 
 ## Release artifact verification
 
@@ -206,7 +237,7 @@ Keep nonsecret evidence needed for review. Credential files and raw scratch outp
 - Missing or malformed credentials are setup diagnostics and do not verify provider connectivity. HTTP 401, 402, and 429 require inspecting credential validity, available credit, or rate limits respectively.
 - Record failed/interrupted outcomes as observed. A timeout, transport failure, or protocol rejection is not a passing provider check.
 - One successful generation establishes the observed model/platform combination at that time. Provider interruption recovery, rate limits, physical console Ctrl+C, other operating systems, and sustained reliability require separate evidence.
-- Completion remains SDK-observed. The SDK's documented trailing-frame limitation still applies.
+- This saved live receipt predates raw terminal-framing observation. It establishes SDK-observed completion on its recorded commit; the new terminal-event gate is verified separately by the offline completion regressions above.
 
 ## Manual live interruption checks
 

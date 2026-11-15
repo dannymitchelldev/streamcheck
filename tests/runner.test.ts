@@ -21,6 +21,7 @@ describe('result and stream boundaries', () => {
     await vi.advanceTimersByTimeAsync(58);
     fixture.emit(chunk('🌍', 'stop'));
     fixture.emit(chunk('', 'stop', { usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 } }));
+    fixture.raw('data: [DONE]\n\n');
     fixture.end();
     const result = await pending;
     expect(result).toMatchObject({ outcome: 'success', text: 'Hello 🌍', partialOutput: false, firstTokenMs: 42, elapsedMs: 100, httpStatus: 200, finishReason: 'stop', warnings: [] });
@@ -70,9 +71,9 @@ describe('result and stream boundaries', () => {
     expect(result).toMatchObject({ outcome: text ? 'interrupted' : 'failed', text, error: { kind: 'protocol', phase: 'stream' } });
   });
 
-  it('records the accepted SDK blind spot after an observed finish reason', async () => {
+  it('rejects the SDK blind spot after an observed finish reason', async () => {
     const response = new Response(`data: ${JSON.stringify(chunk('Complete', 'stop'))}\n\ndata: {"error":`, { headers: { 'content-type': 'text/event-stream' } });
-    expect(await runWithTransport(valid, fixedFetcher(response))).toMatchObject({ outcome: 'success', text: 'Complete', partialOutput: false, finishReason: 'stop' });
+    expect(await runWithTransport(valid, fixedFetcher(response))).toMatchObject({ outcome: 'interrupted', text: 'Complete', partialOutput: true, finishReason: 'stop', error: { kind: 'protocol', phase: 'stream' } });
   });
 
   it('rejects conflicting normal finish reasons', async () => {
