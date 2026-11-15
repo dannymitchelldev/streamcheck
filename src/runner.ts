@@ -26,7 +26,21 @@ function validate(options: LiveOptions): string | null {
   }
   catch { return 'The OpenRouter API key contains invalid HTTP header characters'; }
   if (typeof options.model !== 'string' || !options.model.trim()) return 'A nonempty model is required';
-  if (typeof options.prompt !== 'string' || !options.prompt.trim()) return 'A nonempty prompt is required';
+  if (('prompt' in options) === ('messages' in options)) return 'Provide exactly one of prompt or messages';
+  if ('prompt' in options) {
+    if (typeof options.prompt !== 'string' || !options.prompt.trim()) return 'A nonempty prompt is required';
+  } else {
+    if (!Array.isArray(options.messages) || options.messages.length === 0) return 'Messages must be a nonempty array';
+    for (const message of options.messages) {
+      if (!message || typeof message !== 'object' || Array.isArray(message)
+        || (Object.getPrototypeOf(message) !== Object.prototype && Object.getPrototypeOf(message) !== null)
+        || Object.keys(message).some(key => key !== 'role' && key !== 'content')
+        || !['system', 'user', 'assistant'].includes(message.role)
+        || typeof message.content !== 'string' || !message.content.trim()) {
+        return 'Each message must be a plain text object with a system, user, or assistant role and nonblank content';
+      }
+    }
+  }
   if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > MAX_TIMEOUT)) return 'Timeout must be an integer from 1 to 2147483647 milliseconds';
   if (options.maxTokens !== undefined && (!Number.isSafeInteger(options.maxTokens) || options.maxTokens <= 0)) return 'Maximum tokens must be a positive safe integer';
   if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) return 'Signal must be an AbortSignal';
@@ -93,7 +107,9 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
       const stream = await sdk.chat.send({
         chatRequest: {
           model: options.model,
-          messages: [{ role: 'user', content: options.prompt }],
+          messages: options.messages
+            ? options.messages.map(({ role, content }) => ({ role, content }))
+            : [{ role: 'user', content: options.prompt! }],
           stream: true,
           maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
         },

@@ -18,7 +18,7 @@ Verify the library, SDK boundary, CLI, and packed consumer without provider cred
 ### Safe Actions
 
 - `npm run test:sdk`: executable pinned-SDK compatibility gate.
-- `npm run check`: type checking, built CLI/library tests, and a local packed-package consumer.
+- `npm run check`: type checking, built CLI/library tests, packed-package consumers, and the Workers runtime gate.
 - `node dist/bin.js demo interrupted`: expected exit **3**, with retained partial text.
 
 ### Destructive / Mutating Actions
@@ -90,6 +90,61 @@ Full verification on Windows / Node 24.18.0 / npm 11.16.0 passed `npm run check`
 - A string-valued `error.code` in a Chat Completions chunk causes SDK schema rejection and a StreamCheck protocol diagnostic. Prior accepted text survives. This behavior alone does not establish rejection of a documented Chat Completions response: the current [OpenRouter error documentation](https://openrouter.ai/docs/api_reference/errors-and-debugging) specifies numeric codes for Chat Completions and string codes for the Responses API. Recheck the endpoint-specific documentation before claiming a schema mismatch.
 - `createSdk` injects an `HTTPClient` and wraps either the native or injected fetcher. Its pull-based observer forwards original body bytes, cancellation, errors, and actual response metadata; it keeps bounded framing state without a tee, full-body buffer, or JSON parser. A substring search for `[DONE]` is insufficient.
 - Observation ends at the first complete terminal event, matching SDK cancellation; it does not wait for HTTP EOF or inspect bytes after `[DONE]`. The underlying source reader must be released after EOF, transport errors, and cancellation. No raw frames or SDK exceptions are added to diagnostics or logs.
+
+## Packed-package Workers verification
+
+Last verified: 2026-11-14 on Windows / Node 24.18.0 / npm 11.16.0. Package candidate v0.1.1 (unreleased conversation changes), SDK 1.5.91, workerd 1.20260730.1, esbuild 0.28.2. Compatibility date: **2026-07-30**; flags: **`nodejs_compat`**. Wrangler is not used. These are local results; the unchanged Windows/Ubuntu and Node 22.12.0/24 CI matrix runs the same gate through `npm run check`.
+
+### Purpose
+
+Prove the actual packed ESM library's public exports execute in workerd, rather than substituting a source import, Node-only test, or successful bundle. Verify prompt compatibility, exact conversation serialization, setup validation, outcomes/text/finish metadata, disabled retries, synchronous callbacks, cancellation, deadlines, warnings, and cleanup through the real pinned SDK.
+
+### Setup / Seed Data
+
+- Use Node.js 22.12+ and `npm ci --ignore-scripts` with the lockfile and optional dependencies enabled. The platform-specific esbuild/workerd binaries work without install scripts; missing binaries are a setup failure, never permission to skip the runtime gate.
+- Only dependency installation may contact npm. All credentials and HTTP/SSE responses are synthetic. No Cloudflare account, Wrangler, provider key, service, or deployment is required.
+- `scripts/workers/config.capnp` pins the runtime settings. Its explicit worker named `internet` replaces workerd's automatic public network service. There are no network services, external services, sockets, or disk bindings.
+
+### Safe Actions
+
+`test:workers` builds and packs the candidate, installs it in a task-owned OS temporary directory outside the checkout, bundles its installed public export, and executes the acceptance handler using `workerd test`. An optional archive argument uses those exact bytes without repacking. It never invokes the live examples or live interruption script.
+
+### Destructive / Mutating Actions
+
+Builds write ignored `dist` output. Packing/installation writes only the allocated temporary consumer and npm cache; the temporary directory is removed in `finally` after verifying its parent/name. No publication, GitHub mutation, credential access, or remote infrastructure is part of this check.
+
+### Steps
+
+1. Install locked dependencies with scripts disabled.
+2. Run the direct Workers gate or the full check, which includes it once without recursion.
+3. Inspect the JSON report: archive SHA-256, package/SDK/tool/host versions, compatibility settings, passed cases, intercepted request count, and `externalRequests: 0`.
+4. For a retained candidate, build/pack into an ignored artifact directory and pass that same `.tgz` to both package and Workers commands. Retain the hash and command output with the source revision/dirty state; a local archive is not a release.
+
+### Verification Commands
+
+```sh
+npm ci --ignore-scripts
+npm run test:workers
+npm run check
+npm run example:demo
+# Optional exact-artifact verification (does not repack):
+npm run test:package -- <candidate.tgz>
+npm run test:workers -- <candidate.tgz>
+```
+
+Expected: exit 0. The runtime cases include HTTP 401/503 with one request, HTTP 200 provider errors before/after text, malformed/missing-finish/missing-DONE/unfinished-frame diagnostics, a stream reset after decoded text, callback throw/abort/abort-then-throw, a deadline while draining after a normal finish, pending-request abort/deadline, accepted success followed by abort, warning-bearing/empty success, and malformed conversation/credential input with zero requests. Pre-aborted invalid input remains cancellation. Every received delta equals the returned text, applicable finish metadata survives failures, source reader locks are released, and abort listeners are removed. Packed declarations separately compile positive prompt/conversation callers and reject both/neither/empty/multimodal/unsupported-role input. The existing prompt CLI consumer is still executed.
+
+### Cleanup
+
+The workerd child exits after its tests; no server listens or persists. The host timeout is 60 seconds and is a failing guard, not an alternative outcome. Only the harness's own verified temporary allocation is recursively removed. Keep explicitly retained candidate archives/checksums as local evidence; do not clear shared caches.
+
+### Troubleshooting Notes
+
+- Transport interception is harness-only. It replaces global fetch inside workerd, observes `init?.signal ?? request.signal`, and asserts actual SDK URL/method/body/authorization. There is no public transport override. Unexpected transport assertions are rethrown outside StreamCheck's normalized results. Any escaped fetch reaches the deny service, emits `STREAMCHECK_FORBIDDEN_EGRESS`, and fails the host check.
+- Native `node:http` validation passed; do not add a shim merely because of a Node import. `nodejs_compat` is required by the tested configuration.
+- The initial prompt-only packed proof passed before conversation implementation. The final gate must always run the messages-capable archive; that early proof is insufficient by itself.
+- Synthetic runtime results do not establish naturally occurring provider faults, deployed Cloudflare behavior, other compatibility settings, or billing cessation. Success still requires normal finish plus complete `[DONE]`; framing observation ends at that terminal event, not full HTTP EOF.
+- Conversation features are unreleased. Do not replace the published v0.1.1 bytes: downstream adoption needs a separately authorized versioned GitHub release artifact and exact-artifact verification.
 
 ## Release artifact verification
 

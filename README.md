@@ -84,9 +84,46 @@ runStreamCheck(options: LiveOptions): Promise<RunResult>
 runDemo(options?: DemoOptions): Promise<RunResult>
 ```
 
-Live options require `apiKey`, `model`, and `prompt`; both operations accept `signal`, `timeoutMs`, and synchronous `onText`. Defaults are a 30,000 ms overall deadline and, for live runs, 256 maximum output tokens. No retries or automatic continuation occur.
+Live options require `apiKey`, `model`, and exactly one of `prompt` or a nonempty `messages` array; both operations accept `signal`, `timeoutMs`, and synchronous `onText`. Defaults are a 30,000 ms overall deadline and, for live runs, 256 maximum output tokens. No retries or automatic continuation occur.
+
+Conversation input and the Workers verification below are **unreleased checkout features**. The linked v0.1.1 release remains prompt-only; downstream consumers need a separately versioned release artifact before adopting these additions.
+
+```typescript
+import { runStreamCheck, type TextMessage } from 'streamcheck';
+
+const messages: readonly [TextMessage, ...TextMessage[]] = [
+  { role: 'system', content: 'Explain concepts concisely.' },
+  { role: 'user', content: 'What is a webhook?' },
+  { role: 'assistant', content: 'An HTTP notification sent when an event occurs.' },
+  { role: 'user', content: 'How does the receiver acknowledge it?' },
+];
+// Explicitly calling this makes one potentially billable provider request.
+const result = await runStreamCheck({ apiKey, model, messages, onText(delta) { console.log(delta); } });
+```
+
+`TextMessage` supports only `system`, `user`, and `assistant` with nonblank string content. Each entry must be a plain object containing only `role` and `content`; tools, images, and extra fields are rejected. Roles, order, whitespace, and content reach the SDK unchanged. The readonly tuple annotation proves nonemptiness in TypeScript; runtime validation also protects JavaScript callers. Supplying both input properties (even an explicit `undefined`) or neither returns an input/setup diagnostic before transport. An already-aborted signal retains cancellation precedence over invalid options.
+
+Enable TypeScript's `exactOptionalPropertyTypes` to reject an explicitly undefined opposite input at compile time too. Runtime validation always rejects it.
+
+The CLI continues to accept `--prompt`; conversation input is a library API. The application owns history and decides whether an interrupted or warning-bearing answer belongs in it. [Conversation example](examples/conversation.ts) is compiled, without executing a provider call, by `npm run example:demo`.
 
 An API key that cannot form a valid HTTP authorization header returns an input diagnostic before any request is sent.
+
+A syntactically valid rejected credential requires a provider response: synthetic HTTP 401 is tested as a request failure after one intercepted request.
+
+## Cloudflare Workers runtime
+
+The installed packed ESM package is verified inside **workerd 1.20260730.1**, compatibility date **2026-07-30**, with **`nodejs_compat`**. This flag is required for the library's native `node:http` header validation. The pinned SDK remains **1.5.91**. The library exports work in this tested runtime; the CLI requires Node.js.
+
+```sh
+npm run test:workers
+# Verify an existing candidate without repacking it:
+npm run test:workers -- <path-to-candidate.tgz>
+```
+
+This builds, installs a tarball outside the checkout, bundles its public exports with pinned esbuild, and runs HTTP/SSE fixtures through the real SDK inside workerd. It covers conversation/prompt requests, validation, HTTP/provider/protocol failures, provisional completion, interruption, cancellation, deadlines, synchronous callback failures, warnings, empty success, and reader/listener cleanup. The report identifies the archive SHA-256, versions, compatibility settings, cases, intercepted requests, and zero external requests. An explicit deny service replaces workerd's implicit internet service; no provider credentials, network fallback, deployment, or Cloudflare account is used. See the [Workers runbook](docs/testing-runbook.md#packed-package-workers-verification).
+
+This is synthetic local runtime evidence. It does not establish deployed behavior, live-provider reliability, other compatibility dates/flags, or cessation of provider billing after cancellation.
 
 ## Why these decisions?
 
@@ -160,9 +197,10 @@ Retrying or resuming after partial output can duplicate text and incur additiona
 ```sh
 npm run check
 npm run example:demo
+npm run test:workers
 ```
 
-The full check covers types, library/CLI tests, release checks, and a consumer of the actual packed package outside the checkout. It inspects archive contents, LF shebang, relative source maps, ESM exports, declarations, and the installed CLI. Dependency installation may use npm; provider execution uses fixtures and is blocked from network access. Package verification also requires the standard `tar` command.
+The full check includes `test:workers`, types, library/CLI tests, release checks, and consumers of the actual packed package outside the checkout. It inspects archive contents, LF shebang, relative source maps, ESM exports, positive/negative conversation declarations, and the installed CLI. Dependency installation may use npm; provider execution uses fixtures and is blocked from network access. Package verification also requires the standard `tar` command. Keep npm optional dependencies enabled: esbuild and workerd use platform binaries and support the existing `npm ci --ignore-scripts` installation.
 
 CI runs **Windows/Ubuntu × Node 22.12.0/24**. [View actual runs](https://github.com/dannymitchelldev/streamcheck/actions/workflows/ci.yml?query=branch%3Amain); release notes link the exact validated commit. macOS, live provider behavior, and physical console Ctrl+C are not established by this matrix.
 

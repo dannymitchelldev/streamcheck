@@ -11,13 +11,22 @@ export interface CommonOptions {
   onText?: (delta: string) => void;
 }
 
-export interface LiveOptions extends CommonOptions {
+/** One plain text conversation entry. Tool calls and multimodal content are unsupported. */
+export interface TextMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export type LiveOptions = CommonOptions & {
   apiKey: string;
   model: string;
-  prompt: string;
   /** Positive safe integer; default 256. Provider-specific limits still apply. */
   maxTokens?: number;
-}
+} & (
+  // Enable exactOptionalPropertyTypes to also reject an explicit undefined opposite input.
+  | { prompt: string; messages?: never }
+  | { prompt?: never; messages: readonly [TextMessage, ...TextMessage[]] }
+);
 
 export interface DemoOptions extends CommonOptions {
   scenario?: DemoScenario;
