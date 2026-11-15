@@ -21,8 +21,9 @@
     "test": "vitest run",
     "test:sdk": "vitest run tests/sdk-boundary.test.ts",
     "test:package": "node scripts/package-smoke.mjs",
+    "test:workers": "npm run build && node scripts/workers-smoke.mjs",
     "test:live:interruptions": "npm run build && node scripts/live-interruptions.mjs",
-    "check": "npm run typecheck && npm test && npm run test:package",
+    "check": "npm run typecheck && npm test && npm run test:package && npm run test:workers",
     "demo": "node dist/bin.js demo interrupted",
     "record:demo": "npm run build && node scripts/record-demo.mjs",
     "checksum": "node scripts/checksum.mjs",
@@ -30,5 +31,5 @@
     "example:live": "npm run build && tsc -p examples/tsconfig.json && node .work/examples/live.js"
   },
   "dependencies": { "@openrouter/sdk": "1.5.91" },
-  "devDependencies": { "@types/node": "^22.0.0", "typescript": "7.0.2", "vitest": "5.1.0" }
+  "devDependencies": { "@types/node": "^22.0.0", "esbuild": "0.28.2", "typescript": "7.0.2", "vitest": "5.1.0", "workerd": "1.20260730.1" }
 }

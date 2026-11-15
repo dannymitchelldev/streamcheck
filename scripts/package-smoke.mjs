@@ -66,8 +66,23 @@ assert.equal(result.text, 'Webhooks send HTTP notifications when an event');
 `);
   run(process.execPath, ['consumer.mjs'], temporary);
   writeFileSync(join(temporary, 'consumer.ts'), `
-import {runDemo, runStreamCheck, type RunResult, type LiveOptions, type DemoScenario} from 'streamcheck';
+import {runDemo, runStreamCheck, type RunResult, type LiveOptions, type TextMessage, type DemoScenario} from 'streamcheck';
 const options: LiveOptions = {apiKey:'synthetic', model:'example/model', prompt:'example', onText(delta) { delta.toUpperCase(); }};
+const history: readonly [TextMessage, ...TextMessage[]] = [{role:'system', content:'Keep text'}, {role:'user', content:'Question'}, {role:'assistant', content:'Answer'}];
+const conversation: LiveOptions = {apiKey:'synthetic', model:'example/model', messages:history};
+const next: Promise<RunResult> = runStreamCheck(conversation);
+// @ts-expect-error Both input forms must be rejected by the packed declarations.
+const both: LiveOptions = {apiKey:'synthetic', model:'example/model', prompt:'example', messages:history};
+// @ts-expect-error One input form is required.
+const neither: LiveOptions = {apiKey:'synthetic', model:'example/model'};
+// @ts-expect-error Conversation input must be nonempty.
+const empty: LiveOptions = {apiKey:'synthetic', model:'example/model', messages:[]};
+// @ts-expect-error Exact optional property checking forbids the other input even as undefined.
+const explicitUndefined: LiveOptions = {apiKey:'synthetic', model:'example/model', prompt:'example', messages:undefined};
+// @ts-expect-error Only text messages with supported roles are exposed.
+const tool: TextMessage = {role:'tool', content:'unsupported'};
+// @ts-expect-error String content is required.
+const multimodal: TextMessage = {role:'user', content:[{type:'text', text:'unsupported'}]};
 const live: Promise<RunResult> = runStreamCheck(options);
 const result: RunResult = await runDemo({scenario:'interrupted'});
 const first: number | null = result.firstTokenMs;
@@ -75,9 +90,9 @@ if(result.outcome === 'failed' || result.outcome === 'interrupted') { result.err
 if(result.outcome === 'cancelled') { const reason: 'caller' = result.reason; }
 // @ts-expect-error Invalid scenarios must remain a type error.
 const invalid: DemoScenario = 'invented';
-void live; void first; void invalid;
+void live; void first; void invalid; void next; void both; void neither; void empty; void explicitUndefined; void tool; void multimodal;
 `);
-  run(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'NodeNext', '--target', 'ES2023', '--skipLibCheck', 'consumer.ts'], temporary);
+  run(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--target', 'ES2023', '--skipLibCheck', 'consumer.ts'], temporary);
   const cli = JSON.parse(run(process.execPath, [npmCli, 'exec', '--offline', '--', 'streamcheck', 'demo', 'interrupted', '--json'], temporary, 3));
   assert.equal(cli.outcome, 'interrupted');
   assert.equal(cli.partialOutput, true);
