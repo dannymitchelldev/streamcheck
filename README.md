@@ -55,10 +55,10 @@ Human mode sends exact received text to stdout and its summary to stderr. JSON m
 
 ## Library
 
-From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.1.1):
+From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.2.0):
 
 ```sh
-npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.1.1/streamcheck-0.1.1.tgz
+npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.2.0/streamcheck-0.2.0.tgz
 ```
 
 ```typescript
@@ -86,7 +86,7 @@ runDemo(options?: DemoOptions): Promise<RunResult>
 
 Live options require `apiKey`, `model`, and exactly one of `prompt` or a nonempty `messages` array; both operations accept `signal`, `timeoutMs`, and synchronous `onText`. Defaults are a 30,000 ms overall deadline and, for live runs, 256 maximum output tokens. No retries or automatic continuation occur.
 
-Conversation input and the Workers verification below are **unreleased checkout features**. The linked v0.1.1 release remains prompt-only; downstream consumers need a separately versioned release artifact before adopting these additions.
+Conversation input and the Workers verification below are available starting with **v0.2.0**. Earlier v0.1.1 artifacts remain prompt-only.
 
 ```typescript
 import { runStreamCheck, type TextMessage } from 'streamcheck';
@@ -105,7 +105,7 @@ const result = await runStreamCheck({ apiKey, model, messages, onText(delta) { c
 
 Enable TypeScript's `exactOptionalPropertyTypes` to reject an explicitly undefined opposite input at compile time too. Runtime validation always rejects it.
 
-The CLI continues to accept `--prompt`; conversation input is a library API. The application owns history and decides whether an interrupted or warning-bearing answer belongs in it. [Conversation example](examples/conversation.ts) is compiled, without executing a provider call, by `npm run example:demo`.
+The CLI continues to accept `--prompt`; conversation input is a library API. The application owns history and decides whether an interrupted or warning-bearing answer belongs in it. [Conversation example](https://github.com/dannymitchelldev/streamcheck/blob/v0.2.0/examples/conversation.ts) is compiled, without executing a provider call, by `npm run example:demo`.
 
 An API key that cannot form a valid HTTP authorization header returns an input diagnostic before any request is sent.
 

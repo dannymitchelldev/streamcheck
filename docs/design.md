@@ -1,4 +1,4 @@
-# StreamCheck v0.1 contract
+# StreamCheck v0.2 contract
 
 One ESM TypeScript package, one text-stream operation through the official OpenRouter SDK, and one CLI. Offline demos exercise that SDK with synthetic HTTP/SSE responses. No retries or persistence.
 
@@ -28,7 +28,7 @@ The application boundary is the first complete [DONE] event, where the SDK cance
 
 ## CLI and boundaries
 
-The unreleased packed library is exercised in workerd 1.20260730.1 with compatibility date 2026-07-30 and `nodejs_compat`, including native `node:http` header validation. No compatibility shim or SDK upgrade is needed for this tested configuration. The CLI remains Node-only. Other runtime dates/flags and deployed/live-provider behavior require separate evidence.
+The packed library is exercised in workerd 1.20260730.1 with compatibility date 2026-07-30 and `nodejs_compat`, including native `node:http` header validation. No compatibility shim or SDK upgrade is needed for this tested configuration. The CLI remains Node-only. Other runtime dates/flags and deployed/live-provider behavior require separate evidence.
 
 `npm run test:workers` builds and installs an actual tarball in a temporary consumer outside the checkout. Pinned esbuild bundles only the installed public ESM export and its dependencies, leaving `node:*` native. Workerd's test handler runs synthetic HTTP/SSE fixtures through the public operations and real SDK. Global fetch interception observes the effective signal (`init?.signal ?? request.signal`); an explicit non-network internet service denies any escaped fetch, and the host fails on a denial marker. No socket, external service, or network service is configured. The report binds results to archive SHA-256 and exact tool/runtime settings. An explicit archive argument verifies those same bytes without repacking.
 

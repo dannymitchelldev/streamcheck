@@ -144,7 +144,7 @@ The workerd child exits after its tests; no server listens or persists. The host
 - Native `node:http` validation passed; do not add a shim merely because of a Node import. `nodejs_compat` is required by the tested configuration.
 - The initial prompt-only packed proof passed before conversation implementation. The final gate must always run the messages-capable archive; that early proof is insufficient by itself.
 - Synthetic runtime results do not establish naturally occurring provider faults, deployed Cloudflare behavior, other compatibility settings, or billing cessation. Success still requires normal finish plus complete `[DONE]`; framing observation ends at that terminal event, not full HTTP EOF.
-- Conversation features are unreleased. Do not replace the published v0.1.1 bytes: downstream adoption needs a separately authorized versioned GitHub release artifact and exact-artifact verification.
+- Conversation input begins with the versioned v0.2.0 GitHub release artifact. Never replace previously published version bytes; repeat exact-artifact verification for each release.
 
 ## Release artifact verification
 
@@ -167,16 +167,17 @@ Packing writes the archive; checksum generation writes SHA256SUMS beside it. The
 ### Steps
 
 1. Build and npm pack from the clean release checkout, recording its commit.
-2. Pass that exact .tgz path to the consumer check.
+2. Pass that exact .tgz path to both the package consumer and Workers checks.
 3. Generate and verify SHA256SUMS using Node. Format: lowercase SHA-256, two spaces, portable basename, LF, no BOM.
 4. Upload those bytes after all four CI jobs pass at the release commit.
-5. Download both assets anonymously, verify the checksum, and repeat the exact-artifact consumer check.
+5. Download both assets anonymously, verify the checksum, and repeat both exact-artifact package and Workers checks on the downloaded archive.
 
 ### Verification Commands
 
 ```sh
-npm run test:package -- <path-to-streamcheck-0.1.1.tgz>
-npm run checksum -- <path-to-streamcheck-0.1.1.tgz>
+npm run test:package -- <path-to-streamcheck-0.2.0.tgz>
+npm run test:workers -- <path-to-streamcheck-0.2.0.tgz>
+npm run checksum -- <path-to-streamcheck-0.2.0.tgz>
 npm run checksum -- --check <path-to-SHA256SUMS>
 ```
 
@@ -191,6 +192,8 @@ Keep published artifacts/checksums as release evidence. Remove only task-owned t
 ### Troubleshooting Notes
 
 Explicit LF compiler output removes host newline ambiguity. Archive source-map paths must resolve to shipped src files. A raw .cast source is linked, not expected to render inline. MacOS and physical console Ctrl+C are not established by the four-job matrix.
+
+Version bumps must update `package.json`, both root version fields in `package-lock.json`, and the CLI's `--version` value in `src/cli.ts`. The existing `prints the package version` test compares the built CLI against the package manifest and must pass before release.
 
 ## Patch regressions (v0.1.1)
 

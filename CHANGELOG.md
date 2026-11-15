@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-11-14
+
+- Add role-preserving text conversations through exported `TextMessage` and exclusive `prompt`/nonempty `messages` input. Preserve existing prompt callers, CLI behavior, defaults, result types, synchronous callbacks, and terminal precedence. Implements [#5](https://github.com/dannymitchelldev/streamcheck/issues/5).
+- Verify the installed packed package's public exports in workerd with synthetic HTTP/SSE fixtures, pinned compatibility settings, and blocked external traffic. Include the Workers gate in the Windows/Ubuntu × Node 22.12.0/24 full check.
+- Add an explicitly invoked, bounded manual live-interruption verification command, excluded from automated checks. Offline coverage uses only synthetic fixtures; prior live receipts remain tied to their recorded revisions.
 
 - Require a complete SSE `[DONE]` event as well as a normal finish reason before accepting success. Report missing markers and unfinished trailing frames as protocol diagnostics while preserving received text.
 - Observe framing through the existing custom fetch seam, keeping the pinned SDK for payload parsing and validation, with bounded framing state and source-reader cleanup.
