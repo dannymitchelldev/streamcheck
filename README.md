@@ -86,6 +86,8 @@ runDemo(options?: DemoOptions): Promise<RunResult>
 
 Live options require `apiKey`, `model`, and exactly one of `prompt` or a nonempty `messages` array; both operations accept `signal`, `timeoutMs`, and synchronous `onText`. Defaults are a 30,000 ms overall deadline and, for live runs, 256 maximum output tokens. No retries or automatic continuation occur.
 
+Set `idleTimeoutMs` in either library operation or pass `--idle-timeout-ms <ms>` to CLI `run` or `demo` to detect stalled text output. The idle timeout is disabled by default and accepts integer values from 1 to 2,147,483,647 milliseconds. The timer starts on the first nonempty text delta and resets on each subsequent nonempty delta, including while waiting for stream completion. The overall deadline still covers the entire run. Idle expiry preserves the received text and returns an `interrupted` timeout diagnostic (CLI exit 124).
+
 Conversation input and the Workers verification below are available starting with **v0.2.0**. Earlier v0.1.1 artifacts remain prompt-only.
 
 ```typescript

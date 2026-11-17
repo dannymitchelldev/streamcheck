@@ -255,6 +255,51 @@ describe('validation and cancellation lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('resets the idle timeout only on text and preserves partial output while draining', async () => {
+    vi.useFakeTimers();
+    const fixture = controlledResponse();
+    const pending = runWithTransport({ ...valid, idleTimeoutMs: 50 }, fixture.fetcher);
+    const request = await fixture.requested;
+    fixture.emit(chunk('Keep '));
+    await vi.advanceTimersByTimeAsync(40);
+    fixture.emit(chunk('me', 'stop'));
+    await vi.advanceTimersByTimeAsync(40);
+    expect(request.signal.aborted).toBe(false);
+    fixture.emit(chunk());
+    await vi.advanceTimersByTimeAsync(10);
+    expect(request.signal.aborted).toBe(true);
+    expect(await pending).toMatchObject({
+      outcome: 'interrupted', text: 'Keep me', partialOutput: true, finishReason: 'stop',
+      error: { kind: 'timeout', phase: 'stream', message: 'Stream idle for 50 ms after receiving text' },
+    });
+    expect(fixture.cancellations).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([false, true])('keeps the overall deadline with text received: %s', async withText => {
+    vi.useFakeTimers();
+    const fixture = controlledResponse();
+    const pending = runWithTransport({ ...valid, idleTimeoutMs: 40, timeoutMs: 60 }, fixture.fetcher);
+    await fixture.requested;
+    if (withText) fixture.emit(chunk('First'));
+    await vi.advanceTimersByTimeAsync(30);
+    if (withText) fixture.emit(chunk(' second'));
+    await vi.advanceTimersByTimeAsync(30);
+    expect(await pending).toMatchObject({
+      outcome: withText ? 'interrupted' : 'failed',
+      text: withText ? 'First second' : '',
+      error: { kind: 'timeout', message: 'Overall streaming deadline exceeded' },
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the idle timer on successful completion', async () => {
+    vi.useFakeTimers();
+    const result = await runWithTransport({ ...valid, idleTimeoutMs: 50 }, fixedFetcher(sse(chunk('Done', 'stop'), '[DONE]')));
+    expect(result).toMatchObject({ outcome: 'success', text: 'Done' });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('lets a deadline win while draining after a finish reason', async () => {
     vi.useFakeTimers();
     const fixture = controlledResponse();

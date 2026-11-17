@@ -6,6 +6,8 @@ export type RunSource = 'live' | 'demo';
 export interface CommonOptions {
   /** Overall deadline, including draining. Positive integer milliseconds; default 30,000. */
   timeoutMs?: number;
+  /** Maximum gap after a nonempty text delta, including draining. Disabled by default. */
+  idleTimeoutMs?: number;
   signal?: AbortSignal;
   /** Synchronous only. The delta is accumulated before this callback runs. */
   onText?: (delta: string) => void;
