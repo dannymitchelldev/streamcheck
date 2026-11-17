@@ -1,0 +1,36 @@
+{
+  "evidenceVersion": 1,
+  "description": "Live OpenRouter CLI smoke test with a locally injected stall after the first nonempty text delta.",
+  "package": {
+    "version": "0.3.0",
+    "commit": "be1151b8ce68df68b2233f6c63df2a1eb4e3b149",
+    "archive": "https://github.com/dannymitchelldev/streamcheck/releases/download/v0.3.0/streamcheck-0.3.0.tgz",
+    "sha256": "23518e23d4dcec7aa2ec728d08951cd9d1fb96809a210e1df6c5b5d304623ea7",
+    "archiveChecksumVerified": true
+  },
+  "request": {
+    "platform": "win32",
+    "nodeVersion": "v24.18.0",
+    "model": "openai/gpt-4.1-nano",
+    "providerRequests": 1,
+    "maxTokens": 32,
+    "overallTimeoutMs": 15000,
+    "idleTimeoutMs": 1000
+  },
+  "result": {
+    "httpStatus": 200,
+    "stallInjectedAfterFirstNonemptyTextDelta": true,
+    "outcome": "interrupted",
+    "partialOutputPreserved": true,
+    "exactStdoutMatch": true,
+    "exactOutputCheck": "SHA-256 of the CLI subprocess stdout bytes matched SHA-256 of the UTF-8 bytes of the first provider text delta. Each was one byte.",
+    "idleDiagnostic": "Stream idle for 1000 ms after receiving text",
+    "cliExitCode": 124
+  },
+  "windowsPreload": {
+    "initialError": "ERR_UNSUPPORTED_ESM_URL_SCHEME",
+    "initialProviderRequests": 0,
+    "fix": "Pass a file:// URL to Node's --import flag for the ESM preload instead of an absolute Windows drive-letter path."
+  },
+  "scope": "One successful request to the listed model on Windows. The stall was injected locally. The receipt omits credentials, prompts, raw output, and the digest of the short output."
+}

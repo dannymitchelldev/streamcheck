@@ -176,6 +176,8 @@ Every input/configuration diagnostic exits **2**. Timeout exits **124**, includi
 - **Callbacks:** each text delta is accumulated before synchronous `onText`. A thrown callback preserves its triggering delta. The first observed finish reason is retained even when a callback throws or cancels on the same frame. Do not pass async callbacks; promises and asynchronous rejections are outside this contract.
 - **Timing:** first-token time means time to the first nonempty text delta. It excludes initial module loading and is not a tokenizer measurement. Elapsed time ends when a terminal outcome is accepted, before final cleanup.
 
+The published v0.3.0 CLI preserved the first text delta byte for byte and exited **124** after a locally injected stall in a live OpenRouter stream on Windows. The receipt includes the exact-output check and the Windows preload fix. [v0.3.0 live idle timeout receipt](docs/verification/live-idle-timeout-v0.3.0.json)
+
 ## Troubleshooting and limits
 
 | Symptom | Interpretation |
