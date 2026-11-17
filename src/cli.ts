@@ -12,6 +12,7 @@ Usage:
 Options:
   --json              Emit one complete JSON result, without streamed fragments
   --timeout <ms>      Overall deadline (default: 30000)
+  --idle-timeout-ms <ms>  Maximum gap after a text delta (disabled by default)
   --max-tokens <n>    Maximum output tokens for run (default: 256)
   --help, -h         Show this help
   --version, -v      Show version
@@ -23,6 +24,7 @@ Exit: success 0; failure 1; input 2; interrupted 3; timeout 124; Ctrl+C 130.
 
 const options = {
   model: { type: 'string' }, prompt: { type: 'string' }, timeout: { type: 'string' },
+  'idle-timeout-ms': { type: 'string' },
   'max-tokens': { type: 'string' }, json: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' },
 } as const;
@@ -106,6 +108,7 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     const common = {
       signal: abort.signal,
       ...(values.timeout !== undefined ? { timeoutMs: Number(values.timeout) } : {}),
+      ...(values['idle-timeout-ms'] !== undefined ? { idleTimeoutMs: Number(values['idle-timeout-ms']) } : {}),
       ...(!json ? { onText: (delta: string) => { process.stdout.write(delta); } } : {}),
     };
     const result = command === 'demo'

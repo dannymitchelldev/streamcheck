@@ -42,6 +42,10 @@ function validate(options: LiveOptions): string | null {
     }
   }
   if (options.timeoutMs !== undefined && (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > MAX_TIMEOUT)) return 'Timeout must be an integer from 1 to 2147483647 milliseconds';
+  const idleTimeoutMs = options.idleTimeoutMs;
+  if (idleTimeoutMs !== undefined && (!Number.isInteger(idleTimeoutMs) || idleTimeoutMs <= 0 || idleTimeoutMs > MAX_TIMEOUT)) {
+    return 'Idle timeout must be an integer from 1 to 2147483647 milliseconds';
+  }
   if (options.maxTokens !== undefined && (!Number.isSafeInteger(options.maxTokens) || options.maxTokens <= 0)) return 'Maximum tokens must be a positive safe integer';
   if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) return 'Signal must be an AbortSignal';
   if (options.onText !== undefined && typeof options.onText !== 'function') return 'onText must be a synchronous function';
@@ -97,6 +101,8 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
   // Also close the check/listen gap for signals aborted by caller-side code.
   if (options.signal?.aborted) onCallerAbort();
   const deadline = setTimeout(() => { fail('timeout', 'Overall streaming deadline exceeded'); }, options.timeoutMs ?? DEFAULT_TIMEOUT);
+  const idleTimeoutMs = options.idleTimeoutMs;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   try {
     if (!terminal) {
@@ -145,6 +151,12 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
           if (typeof delta === 'string' && delta.length > 0) {
             if (firstTokenMs === null) firstTokenMs = performance.now() - startedAt;
             text += delta;
+            if (idleTimeoutMs !== undefined) {
+              clearTimeout(idleTimer);
+              idleTimer = setTimeout(() => {
+                fail('timeout', `Stream idle for ${idleTimeoutMs} ms after receiving text`);
+              }, idleTimeoutMs);
+            }
             try { options.onText?.(delta); }
             catch { fail('consumer', 'The synchronous onText callback failed'); }
           }
@@ -192,6 +204,7 @@ export async function runWithTransport(options: LiveOptions, fetcher?: Fetcher, 
     }
   } finally {
     clearTimeout(deadline);
+    clearTimeout(idleTimer);
     options.signal?.removeEventListener('abort', onCallerAbort);
     cancelReader();
     await cancelling;

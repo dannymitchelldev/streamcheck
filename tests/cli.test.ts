@@ -43,12 +43,25 @@ it('keeps human streamed text on stdout and its summary on stderr', async () => 
   expect(actual.err).toMatch(/Failure:\s+Provider error during streaming/);
 });
 
+it('keeps partial demo output and exits 124 on an idle timeout', async () => {
+  const actual = await invoke(['demo', 'success', '--idle-timeout-ms', '20', '--json']);
+  expect(actual.code).toBe(124);
+  expect(actual.err).toBe('');
+  expect(JSON.parse(actual.out)).toMatchObject({
+    outcome: 'interrupted', text: 'Webhooks send HTTP notifications', partialOutput: true,
+    error: { kind: 'timeout', message: 'Stream idle for 20 ms after receiving text' },
+  });
+});
+
 it.each([
   ['run', '--json'],
   ['run', '--model', '', '--prompt', 'hello', '--json'],
   ['demo', 'unknown', '--json'],
   ['demo', '--timeout', '0', '--json'],
   ['demo', '--timeout', 'bad', '--json'],
+  ['demo', '--idle-timeout-ms', '0', '--json'],
+  ['demo', '--idle-timeout-ms', '1.5', '--json'],
+  ['demo', '--idle-timeout-ms', '2147483648', '--json'],
   ['demo', '--model', 'unwanted', '--json'],
   ['demo', '--wat', '--json'],
   ['unknown', '--json'],
