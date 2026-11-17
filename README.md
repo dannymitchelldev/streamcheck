@@ -55,10 +55,10 @@ Human mode sends exact received text to stdout and its summary to stderr. JSON m
 
 ## Library
 
-From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.2.0):
+From another ESM project, install the [GitHub release](https://github.com/dannymitchelldev/streamcheck/releases/tag/v0.3.0):
 
 ```sh
-npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.2.0/streamcheck-0.2.0.tgz
+npm install --ignore-scripts https://github.com/dannymitchelldev/streamcheck/releases/download/v0.3.0/streamcheck-0.3.0.tgz
 ```
 
 ```typescript

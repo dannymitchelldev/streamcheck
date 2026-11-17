@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 — 2026-11-17
+
+- Add opt-in `--idle-timeout-ms` for CLI `run` and `demo` and `idleTimeoutMs` for both library entry points. The timer starts after the first nonempty text delta, resets on each subsequent one, and stays active while the stream drains. The overall deadline remains in force.
+- Preserve exact partial output on idle expiry and report a distinct timeout diagnostic with CLI exit code 124. Offline tests cover stalls, timer resets, deadline precedence, and CLI validation. [PR #9](https://github.com/dannymitchelldev/streamcheck/pull/9)
+
 ## 0.2.0 — 2026-11-14
 
 - Add role-preserving text conversations through exported `TextMessage` and exclusive `prompt`/nonempty `messages` input. Preserve existing prompt callers, CLI behavior, defaults, result types, synchronous callbacks, and terminal precedence. Implements [#5](https://github.com/dannymitchelldev/streamcheck/issues/5).
